@@ -76,7 +76,7 @@ app.post("/webhook", async (req, res) => {
         "anthropic-version": "2023-06-01"
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-5",
+        model: "claude-sonnet-4-20250514",
         max_tokens: 1000,
         system: SYSTEM_PROMPT,
         messages: conversaciones[from]
@@ -98,7 +98,7 @@ app.post("/webhook", async (req, res) => {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${WATI_API_TOKEN}`
       },
-      body: JSON.stringify({ messageText: reply })
+      body: JSON.stringify({ messageText: reply, type: "text" })
     });
 
     const watiData = await watiResponse.json();
