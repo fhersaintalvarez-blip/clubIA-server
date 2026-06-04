@@ -42,10 +42,9 @@ app.post("/webhook", async (req, res) => {
   res.sendStatus(200);
   try {
     const body = req.body;
-    if (!body || body.type !== "message") return;
-
-    const from = body.waId;
-    const text = body.text;
+    if (!body || body.eventType !== "message") return;
+const from = body.waId;
+const text = body.text;   
     if (!from || !text) return;
 
     if (!conversaciones[from]) conversaciones[from] = [];
