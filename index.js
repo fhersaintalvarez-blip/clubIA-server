@@ -6,22 +6,22 @@ const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const WATI_API_TOKEN = process.env.WATI_API_TOKEN;
 const WATI_ENDPOINT = process.env.WATI_ENDPOINT;
 
-const SYSTEM_PROMPT = `Eres el asistente virtual de ClubIA para ProPadel Mérida, un club de pádel en Mérida, Yucatán, México. Atiendes mensajes de clientes por WhatsApp.
+const SYSTEM_PROMPT = `Eres el asistente virtual de ClubIA para ProPadel Merida, un club de padel en Merida, Yucatan, Mexico. Atiendes mensajes de clientes por WhatsApp.
 
 TARIFAS DE CANCHA (por 2 horas):
 - Lunes a jueves: $1,200 MXN
-- Viernes: $600 MXN (Promoción TGI Fridays)
-- Sábado y domingo: $900 MXN (incluye desayuno, solo reservas directas con el club, no aplica en Playtomic)
+- Viernes: $600 MXN (Promocion TGI Fridays)
+- Sabado y domingo: $900 MXN (incluye desayuno, solo reservas directas con el club, no aplica en Playtomic)
 
 CLASES (precio por persona):
 - Individual (1 persona): $550 MXN
-- 2 personas: $300 MXN c/u
-- 3 personas: $250 MXN c/u
-- 4 personas: $200 MXN c/u
+- 2 personas: $300 MXN cada uno
+- 3 personas: $250 MXN cada uno
+- 4 personas: $200 MXN cada uno
 
 OTROS SERVICIOS:
 - Liga ProPadel: 2da temporada activa, 9 parejas, juegos martes y jueves
-- Baby Paddle: niños 3 a 5 años, martes y jueves 10:00am, $800/mes
+- Baby Paddle: ninos 3 a 5 anos, martes y jueves 10am, $800 al mes
 
 HORARIOS: 7:00 a 21:00 hrs
 CANCHAS: 3 canchas disponibles
@@ -29,9 +29,9 @@ CANCHAS: 3 canchas disponibles
 PARA RESERVAR: indicar al cliente que puede reservar en Playtomic o escribir directamente al club para que el equipo confirme disponibilidad.
 
 INSTRUCCIONES:
-- Responde en español, tono amable y profesional
-- Mensajes cortos como WhatsApp real (máximo 4-5 líneas)
-- Usa emojis con moderación (máximo 1-2 por mensaje)
+- Responde en espanol, tono amable y profesional
+- Mensajes cortos como WhatsApp real (maximo 4-5 lineas)
+- Usa emojis con moderacion (maximo 1-2 por mensaje)
 - Si no sabes algo, di que en breve te confirman
 - NUNCA inventes precios o servicios no listados`;
 
@@ -40,30 +40,18 @@ const conversaciones = {};
 app.post("/webhook", async (req, res) => {
   res.sendStatus(200);
   try {
-    console.log("WEBHOOK RECIBIDO:", JSON.stringify(req.body));
-
     const body = req.body;
     if (!body) return;
-
-    // Wati envía eventType "message" para mensajes entrantes
-    if (body.eventType !== "message") {
-      console.log("Evento ignorado:", body.eventType);
-      return;
-    }
+    if (body.eventType !== "message") return;
 
     const from = body.waId;
     const text = body.text;
-
-    if (!from || !text) {
-      console.log("Sin from o text:", from, text);
-      return;
-    }
+    if (!from || !text) return;
 
     console.log("Mensaje de:", from, "Texto:", text);
 
     if (!conversaciones[from]) conversaciones[from] = [];
     conversaciones[from].push({ role: "user", content: text });
-
     if (conversaciones[from].length > 20) {
       conversaciones[from] = conversaciones[from].slice(-20);
     }
@@ -76,40 +64,42 @@ app.post("/webhook", async (req, res) => {
         "anthropic-version": "2023-06-01"
       },
       body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001"      
-          max_tokens: 1000,
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 500,
         system: SYSTEM_PROMPT,
         messages: conversaciones[from]
       })
     });
 
     const aiData = await aiResponse.json();
-    console.log("RESPUESTA IA:", JSON.stringify(aiData));
+    console.log("IA status:", aiData.type, aiData.error);
 
-    const reply = aiData.content?.[0]?.text || "Lo siento, hubo un error. Intenta de nuevo.";
+    const reply = aiData.content && aiData.content[0] ? aiData.content[0].text : "Hola, en un momento te atendemos.";
     conversaciones[from].push({ role: "assistant", content: reply });
 
-    const watiUrl = `${WATI_ENDPOINT}/api/v1/sendSessionMessage/${from}`;
-    console.log("ENVIANDO A WATI:", watiUrl);
+    const watiUrl = WATI_ENDPOINT + "/api/v1/sendSessionMessage/" + from;
+    console.log("Enviando a Wati:", watiUrl);
 
     const watiResponse = await fetch(watiUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${WATI_API_TOKEN}`
+        "Authorization": "Bearer " + WATI_API_TOKEN
       },
-      body: JSON.stringify({ messageText: reply, type: "text" })
+      body: JSON.stringify({ messageText: reply })
     });
 
     const watiData = await watiResponse.json();
-    console.log("RESPUESTA WATI:", JSON.stringify(watiData));
+    console.log("Wati respuesta:", JSON.stringify(watiData));
 
   } catch (err) {
     console.error("ERROR:", err.message);
   }
 });
 
-app.get("/", (req, res) => res.send("ClubIA servidor activo ✅"));
+app.get("/", (req, res) => res.send("ClubIA servidor activo"));
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`ClubIA corriendo en puerto ${PORT}`));
+app.listen(PORT, function() {
+  console.log("ClubIA corriendo en puerto " + PORT);
+});
