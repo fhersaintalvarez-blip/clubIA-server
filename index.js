@@ -52,7 +52,7 @@ app.post("/webhook", async function(req, res) {
         "Content-Type": "application/json",
         "Authorization": "Bearer " + WATI_API_TOKEN
       },
-      body: JSON.stringify({ messageText: reply })
+      body: JSON.stringify({ messageText: reply.replace(/\n/g, " ") })
     });
     const watiData = await watiRes.json();
     console.log("Wati: " + JSON.stringify(watiData));
