@@ -4,7 +4,7 @@ app.use(express.json());
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const WATI_API_TOKEN = process.env.WATI_API_TOKEN;
-const WATI_ENDPOINT = process.env.WATI_ENDPOINT;
+const WATI_ENDPOINT = process.env.WATI_ENDPOINT; 
 
 const SYSTEM_PROMPT = `Eres el asistente virtual de ClubIA para ProPadel Merida, un club de padel en Merida, Yucatan, Mexico. Atiendes mensajes de clientes por WhatsApp.
 
