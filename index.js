@@ -3,7 +3,8 @@ const app = express();
 app.use(express.json());
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
-const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
+const WATI_API_TOKEN = process.env.WATI_API_TOKEN;
+const WATI_ENDPOINT = process.env.WATI_ENDPOINT;
 
 const SYSTEM_PROMPT = `Eres el asistente virtual de ClubIA para ProPadel Mérida, un club de pádel en Mérida, Yucatán, México. Atiendes mensajes de clientes por WhatsApp.
 
@@ -25,7 +26,7 @@ OTROS SERVICIOS:
 HORARIOS: 7:00 a 21:00 hrs
 CANCHAS: 3 canchas disponibles
 
-PARA RESERVAR: indicar al cliente que puede reservar en Playtomic o escribir directamente al club para que Camila confirme disponibilidad.
+PARA RESERVAR: indicar al cliente que puede reservar en Playtomic o escribir directamente al club para que el equipo confirme disponibilidad.
 
 INSTRUCCIONES:
 - Responde en español, tono amable y profesional
@@ -36,31 +37,15 @@ INSTRUCCIONES:
 
 const conversaciones = {};
 
-app.get("/webhook", (req, res) => {
-  const mode = req.query["hub.mode"];
-  const token = req.query["hub.verify_token"];
-  const challenge = req.query["hub.challenge"];
-  if (mode === "subscribe" && token === VERIFY_TOKEN) {
-    res.status(200).send(challenge);
-  } else {
-    res.sendStatus(403);
-  }
-});
-
 app.post("/webhook", async (req, res) => {
   res.sendStatus(200);
   try {
-    const entry = req.body.entry?.[0];
-    const changes = entry?.changes?.[0];
-    const value = changes?.value;
-    const messages = value?.messages;
-    if (!messages || messages.length === 0) return;
+    const body = req.body;
+    if (!body || body.type !== "message") return;
 
-    const msg = messages[0];
-    if (msg.type !== "text") return;
-
-    const from = msg.from;
-    const text = msg.text.body;
+    const from = body.waId;
+    const text = body.text;
+    if (!from || !text) return;
 
     if (!conversaciones[from]) conversaciones[from] = [];
     conversaciones[from].push({ role: "user", content: text });
@@ -89,16 +74,15 @@ app.post("/webhook", async (req, res) => {
 
     conversaciones[from].push({ role: "assistant", content: reply });
 
-    const watiEndpoint = process.env.WATI_ENDPOINT;
-    const watiToken = process.env.WATI_API_TOKEN;
-    await fetch(`${watiEndpoint}/api/v1/sendSessionMessage/${from}`, {
+    await fetch(`${WATI_ENDPOINT}/api/v1/sendSessionMessage/${from}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${watiToken}`
+        "Authorization": `Bearer ${WATI_API_TOKEN}`
       },
       body: JSON.stringify({ messageText: reply })
     });
+
   } catch (err) {
     console.error("Error:", err);
   }
