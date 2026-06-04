@@ -71,7 +71,9 @@ const text = body.text;
 
     const data = await response.json();
     const reply = data.content?.[0]?.text || "Lo siento, hubo un error. Intenta de nuevo.";
-
+    console.log("RESPUESTA IA:", reply);
+console.log("ENVIANDO A:", from);
+console.log("WATI URL:", `${WATI_ENDPOINT}/api/v1/sendSessionMessage/${from}`);
     conversaciones[from].push({ role: "assistant", content: reply });
 
     await fetch(`${WATI_ENDPOINT}/api/v1/sendSessionMessage/${from}`, {
