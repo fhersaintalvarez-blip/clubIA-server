@@ -64,8 +64,8 @@ app.post("/webhook", async (req, res) => {
         "anthropic-version": "2023-06-01"
       },
       body: JSON.stringify({
-        model: "claude-opus-4-6",
-        max_tokens: 500,
+        model: "claude-opus-4-6-20260217"
+          max_tokens: 500,
         system: SYSTEM_PROMPT,
         messages: conversaciones[from]
       })
