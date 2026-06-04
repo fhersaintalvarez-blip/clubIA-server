@@ -38,14 +38,28 @@ INSTRUCCIONES:
 const conversaciones = {};
 
 app.post("/webhook", async (req, res) => {
-  console.log("WEBHOOK RECIBIDO:", JSON.stringify(req.body));  
   res.sendStatus(200);
   try {
+    console.log("WEBHOOK RECIBIDO:", JSON.stringify(req.body));
+
     const body = req.body;
-    if (!body || body.eventType !== "message") return;
-const from = body.waId;
-const text = body.text;   
-    if (!from || !text) return;
+    if (!body) return;
+
+    // Wati envía eventType "message" para mensajes entrantes
+    if (body.eventType !== "message") {
+      console.log("Evento ignorado:", body.eventType);
+      return;
+    }
+
+    const from = body.waId;
+    const text = body.text;
+
+    if (!from || !text) {
+      console.log("Sin from o text:", from, text);
+      return;
+    }
+
+    console.log("Mensaje de:", from, "Texto:", text);
 
     if (!conversaciones[from]) conversaciones[from] = [];
     conversaciones[from].push({ role: "user", content: text });
@@ -54,7 +68,7 @@ const text = body.text;
       conversaciones[from] = conversaciones[from].slice(-20);
     }
 
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
+    const aiResponse = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -69,14 +83,16 @@ const text = body.text;
       })
     });
 
-    const data = await response.json();
-    const reply = data.content?.[0]?.text || "Lo siento, hubo un error. Intenta de nuevo.";
-    console.log("RESPUESTA IA:", reply);
-console.log("ENVIANDO A:", from);
-console.log("WATI URL:", `${WATI_ENDPOINT}/api/v1/sendSessionMessage/${from}`);
+    const aiData = await aiResponse.json();
+    console.log("RESPUESTA IA:", JSON.stringify(aiData));
+
+    const reply = aiData.content?.[0]?.text || "Lo siento, hubo un error. Intenta de nuevo.";
     conversaciones[from].push({ role: "assistant", content: reply });
 
-    await fetch(`${WATI_ENDPOINT}/api/v1/sendSessionMessage/${from}`, {
+    const watiUrl = `${WATI_ENDPOINT}/api/v1/sendSessionMessage/${from}`;
+    console.log("ENVIANDO A WATI:", watiUrl);
+
+    const watiResponse = await fetch(watiUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -85,8 +101,11 @@ console.log("WATI URL:", `${WATI_ENDPOINT}/api/v1/sendSessionMessage/${from}`);
       body: JSON.stringify({ messageText: reply })
     });
 
+    const watiData = await watiResponse.json();
+    console.log("RESPUESTA WATI:", JSON.stringify(watiData));
+
   } catch (err) {
-    console.error("Error:", err);
+    console.error("ERROR:", err.message);
   }
 });
 
