@@ -38,6 +38,7 @@ INSTRUCCIONES:
 const conversaciones = {};
 
 app.post("/webhook", async (req, res) => {
+  console.log("WEBHOOK RECIBIDO:", JSON.stringify(req.body));  
   res.sendStatus(200);
   try {
     const body = req.body;
