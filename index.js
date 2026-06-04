@@ -89,18 +89,15 @@ app.post("/webhook", async (req, res) => {
 
     conversaciones[from].push({ role: "assistant", content: reply });
 
-    const phoneNumberId = value.metadata.phone_number_id;
-    await fetch(`https://graph.facebook.com/v18.0/${phoneNumberId}/messages`, {
+    const watiEndpoint = process.env.WATI_ENDPOINT;
+    const watiToken = process.env.WATI_API_TOKEN;
+    await fetch(`${watiEndpoint}/api/v1/sendSessionMessage/${from}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${process.env.WHATSAPP_TOKEN}`
+        "Authorization": `Bearer ${watiToken}`
       },
-      body: JSON.stringify({
-        messaging_product: "whatsapp",
-        to: from,
-        text: { body: reply }
-      })
+      body: JSON.stringify({ messageText: reply })
     });
   } catch (err) {
     console.error("Error:", err);
