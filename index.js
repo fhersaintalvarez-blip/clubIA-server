@@ -6,6 +6,13 @@ const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const WATI_API_TOKEN = process.env.WATI_API_TOKEN;
 const WATI_ENDPOINT = process.env.WATI_ENDPOINT;
 
+// Agentes disponibles para handoff
+const AGENTES = [
+  "guzmanleslie314@gmail.com",
+  "Cami.lajeme@gmail.com"
+];
+let turnoAgente = 0;
+
 const SYSTEM_PROMPT = `Eres el asistente virtual de ProPadel Merida, el mejor club de padel de Merida, Yucatan. Respondes mensajes de WhatsApp de clientes de forma amable, corta y profesional (maximo 5 lineas, como WhatsApp real). Usa emojis con moderacion (1-2 por mensaje).
 
 HORARIOS DE ATENCION:
@@ -47,10 +54,60 @@ LIGA PROPADEL:
 
 PARA RESERVAR: el cliente puede reservar en Playtomic o escribir directamente al club para que el equipo confirme disponibilidad.
 
-IMPORTANTE: Si no sabes algo, di que en breve te confirman. NUNCA inventes precios o servicios.`;
-
+IMPORTANTE: Si no sabes algo, di exactamente esta frase: "en breve te confirman". NUNCA inventes precios o servicios.`;
 
 const conversaciones = {};
+const enHandoff = {};
+
+function quiereHumano(texto) {
+  const frases = [
+    "hablar con", "habla con", "quiero persona", "agente", "cajera",
+    "humano", "persona real", "atiendeme", "atiéndeme", "necesito ayuda",
+    "no me ayuda", "no entiendes", "quiero hablar", "llamar", "llamen"
+  ];
+  const t = texto.toLowerCase();
+  return frases.some(f => t.includes(f));
+}
+
+function botNoSabe(respuesta) {
+  return respuesta.toLowerCase().includes("en breve te confirman");
+}
+
+async function enviarMensaje(numero, texto) {
+  const url = WATI_ENDPOINT + "/api/v1/sendSessionMessage/" + numero +
+    "?messageText=" + encodeURIComponent(texto);
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + WATI_API_TOKEN
+    },
+    body: JSON.stringify({})
+  });
+  return res.json();
+}
+
+async function asignarAgente(numero) {
+  const agente = AGENTES[turnoAgente % AGENTES.length];
+  turnoAgente++;
+  console.log("Asignando a agente: " + agente);
+  const url = WATI_ENDPOINT + "/api/v1/assignConversation/" + numero;
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + WATI_API_TOKEN
+      },
+      body: JSON.stringify({ email: agente })
+    });
+    const data = await res.json();
+    console.log("Asignacion Wati: " + JSON.stringify(data));
+    return data;
+  } catch (err) {
+    console.log("Error asignando agente: " + err.message);
+  }
+}
 
 app.post("/webhook", async function(req, res) {
   res.sendStatus(200);
@@ -61,12 +118,29 @@ app.post("/webhook", async function(req, res) {
     const from = body.waId;
     const text = body.text;
     if (!from || !text) { return; }
-    console.log("Mensaje: " + text);
+    console.log("Mensaje de " + from + ": " + text);
+
+    // Si ya está en handoff, no responder con bot
+    if (enHandoff[from]) {
+      console.log("Conversacion en handoff, ignorando bot");
+      return;
+    }
+
+    // Detectar si el cliente pide humano directamente
+    if (quiereHumano(text)) {
+      console.log("Cliente pide humano");
+      enHandoff[from] = true;
+      await enviarMensaje(from, "¡Claro! 🙋 En un momento una de nuestras cajeras te atiende personalmente.");
+      await asignarAgente(from);
+      return;
+    }
+
     if (!conversaciones[from]) { conversaciones[from] = []; }
     conversaciones[from].push({ role: "user", content: text });
     if (conversaciones[from].length > 10) {
       conversaciones[from] = conversaciones[from].slice(-10);
     }
+
     const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -81,26 +155,30 @@ app.post("/webhook", async function(req, res) {
         messages: conversaciones[from]
       })
     });
+
     const aiData = await aiRes.json();
     if (aiData.error) {
       console.log("Error IA: " + aiData.error.message);
     }
-    const reply = (aiData.content && aiData.content[0]) ? aiData.content[0].text : "Hola, en breve te atendemos.";
-    console.log("Respuesta: " + reply);
+
+    const reply = (aiData.content && aiData.content[0])
+      ? aiData.content[0].text
+      : "en breve te confirman";
+
+    console.log("Respuesta IA: " + reply);
     conversaciones[from].push({ role: "assistant", content: reply });
-    const replyClean = reply.replace(/\n/g, " ");
-    const watiUrl = WATI_ENDPOINT + "/api/v1/sendSessionMessage/" + from + "?messageText=" + encodeURIComponent(replyClean);
-    console.log("Enviando a Wati URL: " + watiUrl);
-    const watiRes = await fetch(watiUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer " + WATI_API_TOKEN
-      },
-      body: JSON.stringify({})
-    });
-    const watiData = await watiRes.json();
-    console.log("Wati: " + JSON.stringify(watiData));
+
+    // Detectar si el bot no supo responder
+    if (botNoSabe(reply)) {
+      console.log("Bot no sabe, activando handoff");
+      enHandoff[from] = true;
+      await enviarMensaje(from, reply.replace(/\n/g, " "));
+      await asignarAgente(from);
+      return;
+    }
+
+    await enviarMensaje(from, reply.replace(/\n/g, " "));
+
   } catch (err) {
     console.error("Error: " + err.message);
   }
