@@ -6,7 +6,6 @@ const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const WATI_API_TOKEN = process.env.WATI_API_TOKEN;
 const WATI_ENDPOINT = process.env.WATI_ENDPOINT;
 
-// Agentes disponibles para handoff
 const AGENTES = [
   "guzmanleslie314@gmail.com",
   "Cami.lajeme@gmail.com"
@@ -51,6 +50,15 @@ ACADEMIA KIDS:
 LIGA PROPADEL:
 - 2da temporada activa con 9 parejas
 - Partidos martes y jueves
+
+CAFETERIA - ALDEA CAFE:
+- Cafeteria dentro del club, ambiente familiar
+- Menu: cafes, smoothies, desayunos, hamburguesas, tacos, bake, huevos al gusto, chilaquiles, bolis, cocteles
+- Para precios del menu, indicar al cliente que pregunte directamente en el club o con una cajera
+
+AMBIENTE:
+- Club familiar, apto para toda la familia
+- Contamos con cafeteria Aldea Cafe dentro de las instalaciones
 
 PARA RESERVAR: el cliente puede reservar en Playtomic o escribir directamente al club para que el equipo confirme disponibilidad.
 
@@ -120,13 +128,11 @@ app.post("/webhook", async function(req, res) {
     if (!from || !text) { return; }
     console.log("Mensaje de " + from + ": " + text);
 
-    // Si ya está en handoff, no responder con bot
     if (enHandoff[from]) {
       console.log("Conversacion en handoff, ignorando bot");
       return;
     }
 
-    // Detectar si el cliente pide humano directamente
     if (quiereHumano(text)) {
       console.log("Cliente pide humano");
       enHandoff[from] = true;
@@ -168,7 +174,6 @@ app.post("/webhook", async function(req, res) {
     console.log("Respuesta IA: " + reply);
     conversaciones[from].push({ role: "assistant", content: reply });
 
-    // Detectar si el bot no supo responder
     if (botNoSabe(reply)) {
       console.log("Bot no sabe, activando handoff");
       enHandoff[from] = true;
