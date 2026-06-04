@@ -46,13 +46,16 @@ app.post("/webhook", async function(req, res) {
     const reply = (aiData.content && aiData.content[0]) ? aiData.content[0].text : "Hola, en breve te atendemos.";
     console.log("Respuesta: " + reply);
     conversaciones[from].push({ role: "assistant", content: reply });
-    const watiRes = await fetch(WATI_ENDPOINT + "/api/v1/sendSessionMessage/" + from, {
+    const replyClean = reply.replace(/\n/g, " ");
+    const watiUrl = WATI_ENDPOINT + "/api/v1/sendSessionMessage/" + from + "?messageText=" + encodeURIComponent(replyClean);
+    console.log("Enviando a Wati URL: " + watiUrl);
+    const watiRes = await fetch(watiUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Authorization": "Bearer " + WATI_API_TOKEN
       },
-      body: JSON.stringify({ messageText: reply.replace(/\n/g, " ") })
+      body: JSON.stringify({})
     });
     const watiData = await watiRes.json();
     console.log("Wati: " + JSON.stringify(watiData));
