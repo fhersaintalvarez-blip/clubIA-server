@@ -7,8 +7,8 @@ const WATI_API_TOKEN = process.env.WATI_API_TOKEN;
 const WATI_ENDPOINT = process.env.WATI_ENDPOINT;
 
 const AGENTES = [
- "guzmanleslie314@gmail.com",
- "Cami.lajeme@gmail.com"
+  "guzmanleslie314@gmail.com",
+  "Cami.lajeme@gmail.com"
 ];
 let turnoAgente = 0;
 
@@ -83,172 +83,191 @@ const enHandoff = {};
 const DIAS = ["domingo", "lunes", "martes", "miercoles", "jueves", "viernes", "sabado"];
 
 const HORARIOS = {
- 0: { inicio: 7, fin: 14 },
- 1: { inicio: 6, fin: 23.5 },
- 2: { inicio: 6, fin: 23.5 },
- 3: { inicio: 6, fin: 23.5 },
- 4: { inicio: 6, fin: 23.5 },
- 5: { inicio: 6, fin: 23.5 },
- 6: { inicio: 7, fin: 16 }
+  0: { inicio: 7, fin: 14 },
+  1: { inicio: 6, fin: 23.5 },
+  2: { inicio: 6, fin: 23.5 },
+  3: { inicio: 6, fin: 23.5 },
+  4: { inicio: 6, fin: 23.5 },
+  5: { inicio: 6, fin: 23.5 },
+  6: { inicio: 7, fin: 16 }
 };
 
 function getHoraMexico() {
- const ahora = new Date();
- const offsetMexico = -6;
- const utc = ahora.getTime() + ahora.getTimezoneOffset() * 60000;
- return new Date(utc + offsetMexico * 3600000);
+  const ahora = new Date();
+  const offsetMexico = -6;
+  const utc = ahora.getTime() + ahora.getTimezoneOffset() * 60000;
+  return new Date(utc + offsetMexico * 3600000);
 }
 
 function estaAbierto() {
- const horaMexico = getHoraMexico();
- const dia = horaMexico.getDay();
- const hora = horaMexico.getHours() + horaMexico.getMinutes() / 60;
- const horario = HORARIOS[dia];
- return hora >= horario.inicio && hora < horario.fin;
+  const horaMexico = getHoraMexico();
+  const dia = horaMexico.getDay();
+  const hora = horaMexico.getHours() + horaMexico.getMinutes() / 60;
+  const horario = HORARIOS[dia];
+  return hora >= horario.inicio && hora < horario.fin;
 }
 
 function getFechaContexto() {
- const horaMexico = getHoraMexico();
- const dia = DIAS[horaMexico.getDay()];
- const hora = horaMexico.getHours();
- const minutos = horaMexico.getMinutes().toString().padStart(2, "0");
- return `Hoy es ${dia}. Hora actual en Merida: ${hora}:${minutos}.`;
+  const horaMexico = getHoraMexico();
+  const dia = DIAS[horaMexico.getDay()];
+  const hora = horaMexico.getHours();
+  const minutos = horaMexico.getMinutes().toString().padStart(2, "0");
+  return `Hoy es ${dia}. Hora actual en Merida: ${hora}:${minutos}.`;
 }
 
 function quiereHumano(texto) {
- const frases = [
-   "hablar con", "habla con", "quiero persona", "agente", "cajera",
-   "humano", "persona real", "atiendeme", "atiéndeme", "necesito ayuda",
-   "no me ayuda", "no entiendes", "quiero hablar", "llamar", "llamen"
- ];
- const t = texto.toLowerCase();
- return frases.some(f => t.includes(f));
+  const frases = [
+    "hablar con", "habla con", "quiero persona", "agente", "cajera",
+    "humano", "persona real", "atiendeme", "atiéndeme", "necesito ayuda",
+    "no me ayuda", "no entiendes", "quiero hablar", "llamar", "llamen"
+  ];
+  const t = texto.toLowerCase();
+  return frases.some(f => t.includes(f));
 }
 
 function botNoSabe(respuesta) {
- return respuesta.toLowerCase().includes("en breve te confirman");
+  return respuesta.toLowerCase().includes("en breve te confirman");
 }
 
 async function enviarMensaje(numero, texto) {
- const url = WATI_ENDPOINT + "/api/v1/sendSessionMessage/" + numero +
-   "?messageText=" + encodeURIComponent(texto);
- const res = await fetch(url, {
-   method: "POST",
-   headers: {
-     "Content-Type": "application/json",
-     "Authorization": "Bearer " + WATI_API_TOKEN
-   },
-   body: JSON.stringify({})
- });
- return res.json();
+  const url = WATI_ENDPOINT + "/api/v1/sendSessionMessage/" + numero +
+    "?messageText=" + encodeURIComponent(texto);
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + WATI_API_TOKEN
+    },
+    body: JSON.stringify({})
+  });
+  return res.json();
 }
 
 async function asignarAgente(numero) {
- const agente = AGENTES[turnoAgente % AGENTES.length];
- turnoAgente++;
- console.log("Asignando a agente: " + agente);
- const url = WATI_ENDPOINT + "/api/v1/assignConversation/" + numero;
- try {
-   const res = await fetch(url, {
-     method: "POST",
-     headers: {
-       "Content-Type": "application/json",
-       "Authorization": "Bearer " + WATI_API_TOKEN
-     },
-     body: JSON.stringify({ email: agente })
-   });
-   const data = await res.json();
-   console.log("Asignacion Wati: " + JSON.stringify(data));
-   return data;
- } catch (err) {
-   console.log("Error asignando agente: " + err.message);
- }
+  const agente = AGENTES[turnoAgente % AGENTES.length];
+  turnoAgente++;
+  console.log("Asignando a agente: " + agente);
+  try {
+    const url = WATI_ENDPOINT + "/api/v1/assignConversation/" + numero;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + WATI_API_TOKEN
+      },
+      body: JSON.stringify({ assignedTo: agente })
+    });
+    const text = await res.text();
+    console.log("Asignacion Wati response: " + text);
+    try {
+      const data = JSON.parse(text);
+      console.log("Asignacion Wati: " + JSON.stringify(data));
+    } catch(e) {
+      console.log("Respuesta no es JSON, pero continua");
+    }
+  } catch (err) {
+    console.log("Error asignando agente: " + err.message);
+  }
 }
 
 app.post("/webhook", async function(req, res) {
- res.sendStatus(200);
- try {
-   const body = req.body;
-   if (!body) { return; }
-   if (body.eventType !== "message") { return; }
-   const from = body.waId;
-   const text = body.text;
-   if (!from || !text) { return; }
-   console.log("Mensaje de " + from + ": " + text);
+  res.sendStatus(200);
+  try {
+    const body = req.body;
+    if (!body) { return; }
 
-   if (enHandoff[from]) {
-     console.log("Conversacion en handoff, ignorando bot");
-     return;
-   }
+    // Detectar comando /libre del agente
+    if (body.eventType === "agent_message" || 
+        (body.eventType === "message" && body.senderType === "agent")) {
+      if (body.text && body.text.trim() === "/libre") {
+        const numero = body.waId;
+        delete enHandoff[numero];
+        delete conversaciones[numero];
+        console.log("Handoff liberado por agente para: " + numero);
+        await enviarMensaje(numero, "¡Hola de nuevo! 🦝 Raccoon al servicio. ¿En qué te puedo ayudar?");
+      }
+      return;
+    }
 
-   if (!estaAbierto()) {
-     await enviarMensaje(from, "Ey, por ahorita ya cerramos 🌙 pero tu mensaje no se pierde — escríbenos cuando abramos y te atendemos con todo. ¡Nos vemos en la cancha! 🎾");
-     return;
-   }
+    if (body.eventType !== "message") { return; }
+    const from = body.waId;
+    const text = body.text;
+    if (!from || !text) { return; }
+    console.log("Mensaje de " + from + ": " + text);
 
-   if (quiereHumano(text)) {
-     console.log("Cliente pide humano");
-     enHandoff[from] = true;
-     await enviarMensaje(from, "¡Claro! 🙋 En un momento una de nuestras cajeras te atiende personalmente.");
-     await asignarAgente(from);
-     return;
-   }
+    if (enHandoff[from]) {
+      console.log("Conversacion en handoff, ignorando bot");
+      return;
+    }
 
-   if (!conversaciones[from]) { conversaciones[from] = []; }
-   conversaciones[from].push({ role: "user", content: text });
-   if (conversaciones[from].length > 10) {
-     conversaciones[from] = conversaciones[from].slice(-10);
-   }
+    if (!estaAbierto()) {
+      await enviarMensaje(from, "Ey, por ahorita ya cerramos 🌙 pero tu mensaje no se pierde — escríbenos cuando abramos y te atendemos con todo. ¡Nos vemos en la cancha! 🎾");
+      return;
+    }
 
-   const systemConFecha = SYSTEM_PROMPT + "\n\nCONTEXTO ACTUAL: " + getFechaContexto();
+    if (quiereHumano(text)) {
+      console.log("Cliente pide humano");
+      enHandoff[from] = true;
+      await enviarMensaje(from, "¡Claro! 🙋 En un momento una de nuestras cajeras te atiende personalmente.");
+      await asignarAgente(from);
+      return;
+    }
 
-   const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
-     method: "POST",
-     headers: {
-       "Content-Type": "application/json",
-       "x-api-key": ANTHROPIC_API_KEY,
-       "anthropic-version": "2023-06-01"
-     },
-     body: JSON.stringify({
-       model: "claude-opus-4-8",
-       max_tokens: 300,
-       system: systemConFecha,
-       messages: conversaciones[from]
-     })
-   });
+    if (!conversaciones[from]) { conversaciones[from] = []; }
+    conversaciones[from].push({ role: "user", content: text });
+    if (conversaciones[from].length > 10) {
+      conversaciones[from] = conversaciones[from].slice(-10);
+    }
 
-   const aiData = await aiRes.json();
-   if (aiData.error) {
-     console.log("Error IA: " + aiData.error.message);
-   }
+    const systemConFecha = SYSTEM_PROMPT + "\n\nCONTEXTO ACTUAL: " + getFechaContexto();
 
-   const reply = (aiData.content && aiData.content[0])
-     ? aiData.content[0].text
-     : "en breve te confirman";
+    const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01"
+      },
+      body: JSON.stringify({
+        model: "claude-opus-4-8",
+        max_tokens: 300,
+        system: systemConFecha,
+        messages: conversaciones[from]
+      })
+    });
 
-   console.log("Respuesta IA: " + reply);
-   conversaciones[from].push({ role: "assistant", content: reply });
+    const aiData = await aiRes.json();
+    if (aiData.error) {
+      console.log("Error IA: " + aiData.error.message);
+    }
 
-   if (botNoSabe(reply)) {
-     console.log("Bot no sabe, activando handoff");
-     enHandoff[from] = true;
-     await enviarMensaje(from, reply.replace(/\n/g, " "));
-     await asignarAgente(from);
-     return;
-   }
+    const reply = (aiData.content && aiData.content[0])
+      ? aiData.content[0].text
+      : "en breve te confirman";
 
-   await enviarMensaje(from, reply.replace(/\n/g, " "));
+    console.log("Respuesta IA: " + reply);
+    conversaciones[from].push({ role: "assistant", content: reply });
 
- } catch (err) {
-   console.error("Error: " + err.message);
- }
+    if (botNoSabe(reply)) {
+      console.log("Bot no sabe, activando handoff");
+      enHandoff[from] = true;
+      await enviarMensaje(from, reply.replace(/\n/g, " "));
+      await asignarAgente(from);
+      return;
+    }
+
+    await enviarMensaje(from, reply.replace(/\n/g, " "));
+
+  } catch (err) {
+    console.error("Error: " + err.message);
+  }
 });
 
 app.get("/", function(req, res) {
- res.send("ClubIA activo");
+  res.send("ClubIA activo");
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, function() {
- console.log("ClubIA en puerto " + PORT);
+  console.log("ClubIA en puerto " + PORT);
 });
