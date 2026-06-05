@@ -73,6 +73,8 @@ AMBIENTE:
 
 PARA RESERVAR: el cliente puede reservar en Playtomic o escribir directamente al club para que el equipo confirme disponibilidad.
 
+CUANDO PREGUNTEN POR CLASES PARA NINOS O EL CLUB EN GENERAL: menciona Baby Padel (3-5 anos, martes y jueves 5-6pm, $1,850/mes) y Academia Kids (5-21 anos, lunes a jueves 4-6pm, desde $2,350/mes). Nunca digas "en breve te confirman" para estas preguntas, siempre tienes la informacion.
+
 IMPORTANTE: Si no sabes algo, di exactamente esta frase: "en breve te confirman". NUNCA inventes precios o servicios.`;
 
 const conversaciones = {};
