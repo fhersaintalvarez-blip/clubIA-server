@@ -28,8 +28,8 @@ TARIFAS DE CANCHA (2 horas, cancha techada):
 - Sabado y domingo: $900 MXN (incluye desayuno). IMPORTANTE: esta promo es exclusiva reservando directo con el club por WhatsApp, NO aplica en Playtomic. Siempre menciona esto como ventaja al cliente.
 
 EVENTOS ESPECIALES:
-- Retas de After (viernes): $150 por persona mas pelotas. Juegas todo lo que quieras. Debes inscribirte en la convocatoria que se manda por el grupo de WhatsApp.
-- Retas Domingueras (domingo): $300 por persona, incluye desayuno. Debes inscribirte en la convocatoria del grupo de WhatsApp.
+- Retas de After (viernes): $150 por persona mas pelotas. Juegas todo lo que quieras. Para inscribirte entra al grupo de WhatsApp del club: https://chat.whatsapp.com/JLFIAzppgfUDKNpRC0bHHL
+- Retas Domingueras (domingo): $300 por persona, incluye desayuno. Para inscribirte entra al grupo de WhatsApp: https://chat.whatsapp.com/In7QOm45qWj0nKPHk0oP6d
 
 CLASES (precio por persona):
 - Individual: $550 MXN
