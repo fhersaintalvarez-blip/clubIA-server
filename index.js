@@ -43,7 +43,7 @@ PAQUETES DE CLASES:
 - Paquete 20 clases: 20% de descuento sobre el precio normal
 - Paquete 30 clases: 30% de descuento sobre el precio normal
 - Aplica para cualquier modalidad (individual, 2, 3 o 4 personas)
-- Para contratar un paquete, el cliente puede preguntar directamente con el equipo
+- Para contratar un paquete, preguntar directamente con el equipo
 
 BABY PADEL:
 - Programa de padel para ninos de 3 a 5 anos
@@ -57,14 +57,34 @@ ACADEMIA KIDS:
 - Mensualidad 2 dias por semana: $2,350 MXN
 - Mensualidad 4 dias por semana: $3,100 MXN
 
-LIGA PROPADEL:
+PREPARACION FISICA:
+- Clases de preparacion fisica con coach especializado en alto rendimiento
+- Coach: Roandys
+- Martes y jueves de 7:30 am a 8:30 am
+- Ideal para mejorar tu rendimiento dentro y fuera de la cancha
+
+LIGA PROPADEL VARONIL:
 - 2da temporada activa con 9 parejas
-- Partidos martes y jueves
+- Partidos los jueves
+- Se requiere pareja para inscribirse
+
+LIGA PROPADEL FEMENIL:
+- Inscripcion individual, no necesitas pareja
+- Coordinada por Tatiana Cardos
+
+FISIOTERAPIA - AMOVERTE:
+- Fisioterapeuta dentro del club
+- Para costos y citas, contactar directamente con el fisio
+
+TIENDA - MUNDO PADEL:
+- Tienda de padel dentro de las instalaciones
+- Puedes adquirir palas, tenis, ropa y accesorios deportivos
 
 CAFETERIA - ALDEA CAFE:
-- Cafeteria dentro del club, ambiente familiar
+- Mismo horario que el club
 - Menu: cafes, smoothies, desayunos, hamburguesas, tacos, bake, huevos al gusto, chilaquiles, bolis, cocteles
-- Para precios del menu, indicar al cliente que pregunte directamente en el club o con una cajera
+- Para precios del menu, preguntar directamente en el club
+- No se permiten alimentos externos dentro del club
 
 UBICACION Y ACCESO:
 - Direccion: Calle 21 sin numero, Cholul, Merida, Yucatan
@@ -77,7 +97,11 @@ REDES SOCIALES:
 
 AMBIENTE:
 - Club familiar, relajado, apto para toda la familia
-- Cafeteria Aldea Cafe dentro de las instalaciones
+
+METODOS DE PAGO:
+- Efectivo
+- Tarjeta de credito y debito
+- Transferencia bancaria
 
 PARA RESERVAR: el cliente puede reservar en Playtomic o escribir directamente al club para que el equipo confirme disponibilidad.
 
