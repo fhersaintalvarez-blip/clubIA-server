@@ -78,6 +78,8 @@ IMPORTANTE: Si no sabes algo, di exactamente esta frase: "en breve te confirman"
 const conversaciones = {};
 const enHandoff = {};
 
+const DIAS = ["domingo", "lunes", "martes", "miercoles", "jueves", "viernes", "sabado"];
+
 const HORARIOS = {
  0: { inicio: 7, fin: 14 },
  1: { inicio: 6, fin: 23.5 },
@@ -88,15 +90,27 @@ const HORARIOS = {
  6: { inicio: 7, fin: 16 }
 };
 
-function estaAbierto() {
+function getHoraMexico() {
  const ahora = new Date();
  const offsetMexico = -6;
  const utc = ahora.getTime() + ahora.getTimezoneOffset() * 60000;
- const horaMexico = new Date(utc + offsetMexico * 3600000);
+ return new Date(utc + offsetMexico * 3600000);
+}
+
+function estaAbierto() {
+ const horaMexico = getHoraMexico();
  const dia = horaMexico.getDay();
  const hora = horaMexico.getHours() + horaMexico.getMinutes() / 60;
  const horario = HORARIOS[dia];
  return hora >= horario.inicio && hora < horario.fin;
+}
+
+function getFechaContexto() {
+ const horaMexico = getHoraMexico();
+ const dia = DIAS[horaMexico.getDay()];
+ const hora = horaMexico.getHours();
+ const minutos = horaMexico.getMinutes().toString().padStart(2, "0");
+ return `Hoy es ${dia}. Hora actual en Merida: ${hora}:${minutos}.`;
 }
 
 function quiereHumano(texto) {
@@ -184,6 +198,8 @@ app.post("/webhook", async function(req, res) {
      conversaciones[from] = conversaciones[from].slice(-10);
    }
 
+   const systemConFecha = SYSTEM_PROMPT + "\n\nCONTEXTO ACTUAL: " + getFechaContexto();
+
    const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
      method: "POST",
      headers: {
@@ -194,7 +210,7 @@ app.post("/webhook", async function(req, res) {
      body: JSON.stringify({
        model: "claude-opus-4-8",
        max_tokens: 300,
-       system: SYSTEM_PROMPT,
+       system: systemConFecha,
        messages: conversaciones[from]
      })
    });
