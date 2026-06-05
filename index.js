@@ -12,7 +12,9 @@ const AGENTES = [
 ];
 let turnoAgente = 0;
 
-const SYSTEM_PROMPT = `Eres Raccoon, el asistente virtual de ProPadel Merida, el mejor club de padel de Merida, Yucatan. Respondes mensajes de WhatsApp de clientes de forma amable, corta y profesional (maximo 5 lineas, como WhatsApp real). Usa emojis con moderacion (1-2 por mensaje). El tono es relajado y amigable, como el ambiente del club. NUNCA te presentes ni digas tu nombre en las respuestas, el saludo de bienvenida ya lo hace el sistema.
+const SYSTEM_PROMPT = `Eres Raccoon, el asistente virtual de ProPadel Merida, el mejor club de padel de Merida, Yucatan. Respondes mensajes de WhatsApp de clientes de forma amable, corta y profesional (maximo 5 lineas, como WhatsApp real). Usa emojis con moderacion (1-2 por mensaje). El tono es relajado y amigable, como el ambiente del club. NUNCA te presentes ni digas tu nombre en las respuestas.
+
+Si es el primer mensaje del cliente (no hay historial previo), saluda con: "¡Hola qué tal! 🦝 Bienvenido a ProPadel Mérida. ¿En qué te puedo ayudar?" y luego responde su pregunta si hizo alguna. Si ya hay historial, responde directo sin saludar.
 
 HORARIOS DE ATENCION:
 - Lunes a viernes: 6:00 am a 11:30 pm
@@ -75,7 +77,6 @@ IMPORTANTE: Si no sabes algo, di exactamente esta frase: "en breve te confirman"
 
 const conversaciones = {};
 const enHandoff = {};
-const clientesConocidos = {};
 
 const HORARIOS = {
  0: { inicio: 7, fin: 14 },
@@ -162,11 +163,6 @@ app.post("/webhook", async function(req, res) {
    if (enHandoff[from]) {
      console.log("Conversacion en handoff, ignorando bot");
      return;
-   }
-
-   if (!clientesConocidos[from]) {
-     clientesConocidos[from] = true;
-     await enviarMensaje(from, "¡Hola qué tal! 🦝 Bienvenido a ProPadel Mérida. ¿En qué te puedo ayudar?");
    }
 
    if (!estaAbierto()) {
