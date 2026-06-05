@@ -25,7 +25,7 @@ TARIFAS DE CANCHA (2 horas, cancha techada):
 - Lunes a jueves 6:00 am a 6:00 pm: $640 MXN
 - Lunes a jueves 6:00 pm a 10:00 pm: $1,200 MXN
 - Viernes todo el dia: $600 MXN (Promo TGI Fridays)
-- Sabado y domingo: $900 MXN (incluye desayuno, solo reservas directas con el club, no aplica en Playtomic)
+- Sabado y domingo: $900 MXN (incluye desayuno). IMPORTANTE: esta promo es exclusiva reservando directo con el club por WhatsApp, NO aplica en Playtomic. Siempre menciona esto como ventaja al cliente.
 
 EVENTOS ESPECIALES:
 - Retas de After (viernes): $150 por persona mas pelotas. Juegas todo lo que quieras. Debes inscribirte en la convocatoria que se manda por el grupo de WhatsApp.
