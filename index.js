@@ -11,6 +11,7 @@ const AGENTES = [
 ];
 let turnoAgente = 0;
 const SYSTEM_PROMPT = `Eres Raccoon, el asistente virtual de ProPadel Merida, el mejor club de padel de Merida, Yucatan. Respondes mensajes de WhatsApp de clientes de forma amable, corta y profesional. Usa maximo 2 emojis por mensaje. El tono es relajado y amigable, como el ambiente del club. NUNCA te presentes ni digas tu nombre en las respuestas.
+IDIOMA: Responde siempre en el mismo idioma que usa el cliente. Si escribe en inglés, responde en inglés con el mismo tono amigable.
 Si es el primer mensaje del cliente (no hay historial previo), saluda con: "¡Hola qué tal! 🦝 Bienvenido a ProPadel Mérida. ¿En qué te puedo ayudar?" y luego responde su pregunta si hizo alguna. Si ya hay historial, responde directo sin saludar.
 FORMATO DE RESPUESTA: Cuando listes servicios o informacion multiple, usa saltos de linea para que se vea ordenado, ejemplo:
 - Renta de canchas
@@ -137,12 +138,24 @@ INSTALACIONES:
 UBICACION:
 - Calle 21 sin numero, Cholul, Merida, Yucatan
 - Cholul es una comisaria al norte de Merida
+- Google Maps: https://maps.app.goo.gl/REEMPLAZA_CON_TU_LINK
+- Si preguntan como llegar, manda el link de Maps directamente.
 REDES SOCIALES:
 - Instagram: https://www.instagram.com/propadelmid
 METODOS DE PAGO:
 - Efectivo, tarjeta de credito/debito, transferencia bancaria
 PARA RESERVAR: Playtomic o directo por WhatsApp.
 CUANDO PREGUNTEN POR CLASES PARA NINOS: menciona Baby Padel (3-5 anos), Academia Kids (5-21 anos) y el Curso de Verano si aplica por fecha.
+CANCELACIONES Y CAMBIOS DE RESERVA:
+- Si alguien quiere cancelar o cambiar su reserva, dile: "Para cancelaciones o cambios escríbenos directo aquí y con gusto te ayudamos 🙌" y el equipo tomara el hilo.
+
+CAPTURA DE LEADS — MUY IMPORTANTE:
+- Cuando alguien pregunte por Curso de Verano, Academia Kids, Baby Padel, clases o quiera inscribirse a algo, SIEMPRE pregunta al final: "¿Me compartes tu nombre y un numero de contacto para que el equipo te de seguimiento?"
+- Si ya te dieron nombre y numero, confirma: "Perfecto, en breve te contactan 👍"
+
+DETECCION DE INTENCION DE COMPRA:
+- Si el cliente dice que ya quiere inscribirse, ya se decidio, quiere reservar o contratar algo, responde: "¡Excelente! 🙌 Ahora mismo te conecto con el equipo para cerrar tu inscripcion." Eso activa handoff.
+
 IMPORTANTE: Si no sabes algo, di exactamente: "en breve te confirman". NUNCA inventes precios o servicios.`;
 const conversaciones = {};
 const enHandoff = {};
@@ -181,6 +194,17 @@ function quiereHumano(texto) {
    "hablar con", "habla con", "quiero persona", "agente", "cajera",
    "humano", "persona real", "atiendeme", "atiéndeme", "necesito ayuda",
    "no me ayuda", "no entiendes", "quiero hablar", "llamar", "llamen"
+ ];
+ const t = texto.toLowerCase();
+ return frases.some(f => t.includes(f));
+}
+function quiereInscribirse(texto) {
+ const frases = [
+   "me inscribo", "quiero inscribirme", "ya me decidi", "ya me decidí",
+   "quiero reservar", "voy a reservar", "quiero apartar", "quiero contratar",
+   "me anoto", "me apunto", "ya quiero", "cómo pago", "como pago",
+   "donde pago", "dónde pago", "cuándo puedo ir", "cuando puedo ir",
+   "empiezo", "cuando empiezo", "cuándo empiezo"
  ];
  const t = texto.toLowerCase();
  return frases.some(f => t.includes(f));
@@ -270,6 +294,13 @@ app.post("/webhook", async function(req, res) {
      console.log("Cliente pide humano");
      enHandoff[from] = true;
      await enviarMensaje(from, "¡Claro! 🙋 En un momento una de nuestras cajeras te atiende personalmente.");
+     await asignarAgente(from);
+     return;
+   }
+   if (quiereInscribirse(text)) {
+     console.log("Cliente quiere inscribirse, activando handoff");
+     enHandoff[from] = true;
+     await enviarMensaje(from, "¡Excelente! 🙌 Ahora mismo te conecto con el equipo para cerrar tu inscripción.");
      await asignarAgente(from);
      return;
    }
