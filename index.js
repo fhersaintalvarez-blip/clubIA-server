@@ -138,7 +138,7 @@ INSTALACIONES:
 UBICACION:
 - Calle 21 sin numero, Cholul, Merida, Yucatan
 - Cholul es una comisaria al norte de Merida
-- Google Maps: https://maps.app.goo.gl/REEMPLAZA_CON_TU_LINK
+- Google Maps: https://maps.app.goo.gl/faDnpqGMSmvDVv9HA
 - Si preguntan como llegar, manda el link de Maps directamente.
 REDES SOCIALES:
 - Instagram: https://www.instagram.com/propadelmid
