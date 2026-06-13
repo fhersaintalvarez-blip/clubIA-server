@@ -81,9 +81,52 @@ TIENDA - MUNDO PADEL:
 - Palas, tenis, ropa y accesorios deportivos
 CAFETERIA - ALDEA CAFE:
 - Mismo horario que el club
-- Menu: cafes, smoothies, desayunos, hamburguesas, tacos, bake, huevos al gusto, chilaquiles, bolis, cocteles
-- Para precios, preguntar directamente en el club
 - No se permiten alimentos externos
+
+BEBIDAS CALIENTES:
+- Espresso $45 | Americano $55 | Descafeinado $50
+- Capuccino $70 | Latte $70 | Chocolate abuelita $70 | Chai Latte $70
+- Caramel Latte $75 | Horchata Latte $75 | Moca $75 | Dirty Chai $75
+
+BEBIDAS FRIAS:
+- Malteada Choco Galleta $80 | Malteada de Fresa $80 | Malteada de Caramelo $80 | Frappuccino $80
+- Licuado proteina vegetal sabor chocolate $85 | Licuado frutos rojos sabor vainilla $85
+- Smoothie Jugo Verde $80
+
+SMOOTHIES $60:
+Sabores: Mango, Fresa, Guayaba, Uva, Limon, Pitahaya, Pina Colada
+Modificadores: +$10 Lechera | +$10 Chamoy con Tajin | +$20 Licor (coctel)
+
+DESAYUNOS:
+- Breakfast Sandwich $120 — pan brioche, huevo, jamon, queso americano, chipotle, papas chips
+- Waffles con platano $100 — miel, azucar glass, platano
+- Sandwich Ligero $120 — pan integral, jamon de pavo, queso panela, hummus chipotle, tomate, lechuga, papas chips
+- Avocado Toast $160 — guacamole, huevos, tomate, cebolla, everything bagel
+- Chilaquiles Verdes $120 (con huevo) / $150 (con pollo) — frijol, salsa verde, queso sopero, crema, cebolla
+- Huevos 2pz $80 | A la mexicana $85 | Con jamon $90 — con frijol y totopos
+
+TARDES DE RETA:
+- Choripan $120 — chorizo argentino, mayonesa, lechuga, tomate, chimichurri, papas chips
+- Cheese Burger $130 — doble queso americano, jalapenos, chipotle, papas chips
+- Chicken Sandwich $130 — pechuga empanizada, queso americano, lechuga, tomate, papas chips
+
+TAQUIZA (ordenes de 3 piezas):
+- Tacos de Pastor $110
+- Gringas de Pastor $130 | Gringas de Chuleta $130
+- Gringas Arrachera con Chistorra $150
+- Tacos Carnitas de Atun $150
+
+PARA BOTANEAR:
+- Papas a la francesa $100
+- Dedos de queso y Chips $120 — mozzarella 8pz, bastones verdura, chipotle
+- Nachos Especiales $160 — Pastor/Chuleta/Arrachera, guacamole, jalapenos
+- Boneless y Chips $250 — bufalo o bbq, 500gr, ranch
+- Bandeja Carta Clara $500 — boneless + dedos queso + papas + nachos + 1 misil gratis
+
+POSTRES:
+- Sundae Hersheys $45 — helado vainilla sabores: Chocolate, Fresa, Caramelo, Affogato
+- Bolis Jumbo $45 — Mamut, Gansito, Bubulubu, Chocoreta
+
 INSTALACIONES:
 - 8 canchas techadas
 - Alberca
