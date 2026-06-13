@@ -206,9 +206,6 @@ app.post("/webhook", async function(req, res) {
      console.log("Conversacion en handoff, ignorando bot");
      return;
    }
-   if (!estaAbierto()) {
-     await enviarMensaje(from, "Ey, por ahorita ya cerramos 🌙 pero con gusto te ayudo con info del club.");
-   }
    if (quiereHumano(text)) {
      console.log("Cliente pide humano");
      enHandoff[from] = true;
@@ -221,7 +218,9 @@ app.post("/webhook", async function(req, res) {
    if (conversaciones[from].length > 10) {
      conversaciones[from] = conversaciones[from].slice(-10);
    }
-   const systemConFecha = SYSTEM_PROMPT + "\n\nCONTEXTO ACTUAL: " + getFechaContexto();
+   const esCerrado = !estaAbierto();
+   const systemConFecha = SYSTEM_PROMPT + "\n\nCONTEXTO ACTUAL: " + getFechaContexto() +
+     (esCerrado ? " El club está cerrado en este momento. Si es el primer mensaje del cliente, saluda normal y menciona brevemente que ya cerramos pero que con gusto le ayudas con info. Si ya hay historial, responde directo sin volver a mencionar el cierre." : "");
    const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
      method: "POST",
      headers: {
