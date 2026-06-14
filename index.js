@@ -23,11 +23,25 @@ HORARIOS DE ATENCION:
 - Lunes a viernes: 6:00 am a 11:30 pm
 - Sabado: 7:00 am a 4:00 pm
 - Domingo: 7:00 am a 2:00 pm
-TARIFAS DE CANCHA (2 horas, cancha techada):
-- Lunes a jueves 6:00 am a 6:00 pm: $640 MXN
-- Lunes a jueves 6:00 pm a 10:00 pm: $1,200 MXN
-- Viernes todo el dia: $600 MXN (Promo TGI Fridays)
-- Sabado y domingo: $900 MXN (incluye desayuno). IMPORTANTE: esta promo es exclusiva reservando directo con el club por WhatsApp, NO aplica en Playtomic. Siempre menciona esto como ventaja al cliente.
+TARIFAS DE CANCHA (cancha techada):
+La unidad base de renta es 2 horas. El precio por hora se calcula dividiendo entre 2. Puedes calcular cualquier duracion y darselo directo al cliente sin necesitar al equipo.
+
+PRECIO BASE (bloque 2 horas):
+- Lunes a jueves 6:00 am a 6:00 pm: $640 MXN (= $320/hora)
+- Lunes a jueves 6:00 pm a 10:00 pm: $1,200 MXN (= $600/hora)
+- Viernes todo el dia: $600 MXN (= $300/hora) — Promo TGI Fridays
+- Sabado y domingo: $900 MXN (= $450/hora, incluye desayuno)
+
+CALCULOS POR DURACION — responde siempre con el calculo exacto:
+- 1 hora: precio/hora del horario correspondiente
+- 1.5 horas: precio/hora x 1.5
+- 2 horas: precio base del bloque
+- 3 horas: precio/hora x 3
+- 4 horas: precio/hora x 4
+Ejemplo: "3 horas lunes en la tarde" = $600 x 3 = $1,800 MXN. Da siempre el numero final, no la formula.
+Si piden mas de 2 horas seguidas, menciona que la disponibilidad de cancha continua depende del horario y sugiere confirmar con el equipo.
+
+IMPORTANTE fin de semana: la promo $900 con desayuno es exclusiva reservando directo por WhatsApp, NO aplica en Playtomic. Siempre menciona esto como ventaja.
 EVENTOS ESPECIALES:
 - Retas de After Office (viernes): $150 por persona mas pelotas. Juegas todo lo que quieras. Para inscribirte o mas info contacta a Tatiana Cardos: 999 193 4806
 - Retas Domingueras (domingo): $300 por persona, incluye desayuno. Para inscribirte o mas info contacta a Tatiana Cardos: 999 193 4806
@@ -189,6 +203,12 @@ function getFechaContexto() {
  const minutos = horaMexico.getMinutes().toString().padStart(2, "0");
  return `Hoy es ${dia}. Hora actual en Merida: ${hora}:${minutos}.`;
 }
+function detectarIdioma(texto) {
+ const palabrasIngles = ["how", "what", "when", "where", "who", "can", "is", "are", "do", "does", "rent", "book", "court", "price", "cost", "please", "yes", "no", "thanks", "hello", "hi"];
+ const t = texto.toLowerCase();
+ const hits = palabrasIngles.filter(p => t.includes(p)).length;
+ return hits >= 2 ? "en" : "es";
+}
 function quiereHumano(texto) {
  const frases = [
    "hablar con", "habla con", "quiero persona", "agente", "cajera",
@@ -293,14 +313,22 @@ app.post("/webhook", async function(req, res) {
    if (quiereHumano(text)) {
      console.log("Cliente pide humano");
      enHandoff[from] = true;
-     await enviarMensaje(from, "¡Claro! 🙋 En un momento una de nuestras cajeras te atiende personalmente.");
+     const esInglesH = /^[a-zA-Z\s\d.,!?'"-]+$/.test(text.trim());
+     const msgHumano = esInglesH
+       ? "Of course! 🙋 One of our team members will be with you shortly."
+       : "¡Claro! 🙋 En un momento una de nuestras cajeras te atiende personalmente.";
+     await enviarMensaje(from, msgHumano);
      await asignarAgente(from);
      return;
    }
    if (quiereInscribirse(text)) {
      console.log("Cliente quiere inscribirse, activando handoff");
      enHandoff[from] = true;
-     await enviarMensaje(from, "¡Excelente! 🙌 Ahora mismo te conecto con el equipo para cerrar tu inscripción.");
+     const esIngles = /^[a-zA-Z\s\d.,!?'"-]+$/.test(text.trim());
+     const msgInscripcion = esIngles
+       ? "Perfect! 🙌 Connecting you with the team right now to complete your registration."
+       : "¡Excelente! 🙌 Ahora mismo te conecto con el equipo para cerrar tu inscripción.";
+     await enviarMensaje(from, msgInscripcion);
      await asignarAgente(from);
      return;
    }
