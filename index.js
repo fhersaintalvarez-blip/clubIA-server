@@ -333,12 +333,17 @@ app.post("/webhook", async function(req, res) {
    if (!body) { return; }
    if (body.eventType === "agent_message" ||
        (body.eventType === "message" && body.senderType === "agent")) {
+     const numero = body.waId;
      if (body.text && body.text.trim() === "/libre") {
-       const numero = body.waId;
        delete enHandoff[numero];
        delete conversaciones[numero];
        console.log("Handoff liberado por agente para: " + numero);
        await enviarMensaje(numero, "¡Hola de nuevo! 🦝 ¿En qué más te puedo ayudar?");
+     } else {
+       if (!enHandoff[numero]) {
+         enHandoff[numero] = true;
+         console.log("Agente respondio, Raccoon silenciado para: " + numero);
+       }
      }
      return;
    }
