@@ -15,6 +15,7 @@ const EMAILS_AGENTES = new Set([
   "fhersaintalvarez@gmail.com"
 ]);
 let turnoAgente = 0;
+
 const SYSTEM_PROMPT = `Eres Raccoon, el asistente virtual de ProPadel Merida, el mejor club de padel de Merida, Yucatan. Respondes mensajes de WhatsApp de clientes de forma amable, corta y profesional. Usa maximo 2 emojis por mensaje. El tono es relajado y amigable, como el ambiente del club. NUNCA te presentes ni digas tu nombre en las respuestas.
 IDIOMA: Responde siempre en el mismo idioma que usa el cliente. Si escribe en inglés, responde en inglés con el mismo tono amigable.
 Si es el primer mensaje del cliente (no hay historial previo), saluda con: "¡Hola qué tal! 🦝 Bienvenido a ProPadel Mérida. ¿En qué te puedo ayudar?" y luego responde su pregunta si hizo alguna. Si ya hay historial, responde directo sin saludar.
@@ -195,10 +196,6 @@ RENTA Y VENTA DE EQUIPO:
  * Boltic: $180 MXN
  * Bullpadel: $200 MXN
 
-PELOTAS EN VENTA:
-- Boltic: $180 MXN el bote
-- Bullpadel: $200 MXN el bote
-
 UBICACION:
 - Calle 21 sin numero, Cholul, Merida, Yucatan
 - Cholul es una comisaria al norte de Merida
@@ -226,8 +223,6 @@ IMPORTANTE: Si no sabes algo, di exactamente: "en breve te confirman". NUNCA inv
 
 const conversaciones = {};
 const enHandoff = {};
-
-// ── NUEVO: rastrear conversaciones iniciadas por agente via plantilla ──
 const iniciadasPorAgente = new Set();
 
 const DIAS = ["domingo", "lunes", "martes", "miercoles", "jueves", "viernes", "sabado"];
@@ -289,6 +284,36 @@ function quiereInscribirse(texto) {
 }
 function botNoSabe(respuesta) {
   return respuesta.toLowerCase().includes("en breve te confirman");
+}
+
+// ── Consultar Wati si la conversacion tiene agente asignado ──
+async function tieneAgenteAsignado(waId) {
+  try {
+    const url = WATI_ENDPOINT + "/api/v1/getConversation/" + waId;
+    const res = await fetch(url, {
+      method: "GET",
+      headers: {
+        "Authorization": "Bearer " + WATI_API_TOKEN,
+        "Content-Type": "application/json"
+      }
+    });
+    const data = await res.json();
+    console.log("[CHECK AGENTE] Conversacion " + waId + ":", JSON.stringify(data).substring(0, 200));
+
+    // Wati devuelve assignedAgent o operatorEmail si hay alguien asignado
+    if (data && (data.assignedAgent || data.operatorEmail || data.assignedTo)) {
+      const agente = data.assignedAgent || data.operatorEmail || data.assignedTo;
+      // Solo bloquear si es uno de nuestros agentes, no si esta sin asignar
+      if (agente && agente !== "" && agente !== null) {
+        console.log("[CHECK AGENTE] Agente encontrado: " + agente);
+        return true;
+      }
+    }
+    return false;
+  } catch (err) {
+    console.log("[CHECK AGENTE] Error consultando conversacion: " + err.message);
+    return false; // Si falla la consulta, dejar pasar a Raccoon
+  }
 }
 
 async function enviarMensaje(numero, texto) {
@@ -356,20 +381,19 @@ app.post("/webhook", async function(req, res) {
 
     const numero = body.waId;
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // BLOQUE 1: Mensaje enviado POR un agente (plantilla o sesion)
-    // Cuando Leslie/Camila mandan una plantilla, llega aqui primero
-    // Marcamos ese numero como "iniciado por agente" → Raccoon no entra
-    // ─────────────────────────────────────────────────────────────────────────
-    if (
+    // ─────────────────────────────────────────────────────────────────
+    // BLOQUE 1: Mensaje de AGENTE — cualquier variante que mande Wati
+    // ─────────────────────────────────────────────────────────────────
+    const esMensajeDeAgente =
       body.eventType === "agent_message" ||
       body.eventType === "template_message" ||
       (body.eventType === "message" && body.senderType === "agent") ||
       (body.senderType && body.senderType !== "customer") ||
-      (body.senderEmail && EMAILS_AGENTES.has(body.senderEmail))
-    ) {
+      (body.senderEmail && EMAILS_AGENTES.has(body.senderEmail)) ||
+      (body.operatorEmail && EMAILS_AGENTES.has(body.operatorEmail));
+
+    if (esMensajeDeAgente) {
       if (numero) {
-        // Si el agente escribe /libre, reactivamos Raccoon
         if (body.text && body.text.trim() === "/libre") {
           delete enHandoff[numero];
           iniciadasPorAgente.delete(numero);
@@ -377,18 +401,17 @@ app.post("/webhook", async function(req, res) {
           console.log("Handoff liberado por agente para: " + numero);
           await enviarMensaje(numero, "¡Hola de nuevo! 🦝 ¿En qué más te puedo ayudar?");
         } else {
-          // Marcar como conversacion en manos del agente
           enHandoff[numero] = true;
           iniciadasPorAgente.add(numero);
-          console.log("[HANDOFF] Agente activo detectado, Raccoon silent: " + numero);
+          console.log("[HANDOFF] Agente activo, Raccoon silent: " + numero);
         }
       }
       return;
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // BLOQUE 2: Mensaje del CLIENTE
-    // ─────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────
+    // BLOQUE 2: Mensaje de CLIENTE
+    // ─────────────────────────────────────────────────────────────────
     if (body.eventType !== "message") { return; }
 
     const from = body.waId;
@@ -397,36 +420,37 @@ app.post("/webhook", async function(req, res) {
 
     console.log("Mensaje cliente de " + from + ": " + text);
 
-    // ── FIX CLAVE: Si esta conversacion fue iniciada por agente via plantilla
-    //    y el cliente responde → el agente sigue a cargo, Raccoon no entra ──
-    if (iniciadasPorAgente.has(from)) {
-      console.log("[HANDOFF] Respuesta a plantilla de agente, Raccoon silent: " + from);
-      enHandoff[from] = true;
+    // Chequeo 1: handoff en memoria
+    if (enHandoff[from] || iniciadasPorAgente.has(from)) {
+      console.log("[HANDOFF] En memoria, Raccoon silent: " + from);
       return;
     }
 
-    // ── Handoff activo normal ──
-    if (enHandoff[from]) {
-      console.log("Conversacion en handoff, ignorando bot");
+    // Chequeo 2: consultar Wati directamente si hay agente asignado
+    // Esto cubre el caso donde el servidor se reinicio y perdio la memoria
+    const hayAgente = await tieneAgenteAsignado(from);
+    if (hayAgente) {
+      enHandoff[from] = true; // guardar en memoria para proximas veces
+      console.log("[HANDOFF] Agente detectado via API, Raccoon silent: " + from);
       return;
     }
 
-    // ── Delay de 2s para que agente pueda tomar control antes que Raccoon ──
+    // Delay de 2s — ventana para que agente tome control
     await new Promise(resolve => setTimeout(resolve, 2000));
 
     // Doble chequeo post-delay
     if (enHandoff[from] || iniciadasPorAgente.has(from)) {
-      console.log("Agente tomo el caso durante el delay, Raccoon no interviene");
+      console.log("Agente tomo el caso durante delay, Raccoon no interviene");
       return;
     }
 
-    // ── Confirmaciones pasivas (ok, gracias, etc) → Raccoon no responde ──
+    // Confirmaciones pasivas → Raccoon no responde
     if (esConfirmacionPasiva(text)) {
       console.log("Confirmacion pasiva, Raccoon no responde: " + text);
       return;
     }
 
-    // ── El cliente pide hablar con humano ──
+    // Cliente pide humano
     if (quiereHumano(text)) {
       console.log("Cliente pide humano");
       enHandoff[from] = true;
@@ -439,7 +463,7 @@ app.post("/webhook", async function(req, res) {
       return;
     }
 
-    // ── El cliente quiere inscribirse/comprar ──
+    // Cliente quiere inscribirse/comprar
     if (quiereInscribirse(text)) {
       console.log("Cliente quiere inscribirse, activando handoff");
       enHandoff[from] = true;
@@ -493,7 +517,7 @@ app.post("/webhook", async function(req, res) {
     conversaciones[from].push({ role: "assistant", content: reply });
 
     if (botNoSabe(reply)) {
-      console.log("Bot no sabe, notificando agente sin cortar conversacion");
+      console.log("Bot no sabe, notificando agente");
       await notificarAgente(from);
     }
 
