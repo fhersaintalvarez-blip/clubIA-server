@@ -57,6 +57,15 @@ EVENTOS ESPECIALES:
 - Retas de After Office (viernes): $150 por persona mas pelotas. Juegas todo lo que quieras. Para inscribirte o mas info contacta a Tatiana Cardos: 999 193 4806
 - Retas Domingueras (domingo): $300 por persona, incluye desayuno. Para inscribirte o mas info contacta a Tatiana Cardos: 999 193 4806
 - Torneo 4ta Fuerza (lunes): Organizado por Tatiana Cardos. Para mas info y unirte al grupo: 999 193 4806
+
+CIRCUITO DE LA CAGUAMA (convenio externo):
+- No es un torneo del club, es un circuito externo con convenio con ProPadel
+- Si el cliente menciona "partido de la caguama", "circuito de la caguama", "torneo de la caguama" o similar, confirma el beneficio segun horario:
+  * Lun-Jue 6pm a 8pm: tu reserva incluye pelotas Boltic + 1 caguama 🎾🍺
+  * Lun-Jue 8pm en adelante: tu reserva incluye 1 caguama 🍺
+- SIEMPRE pregunta: "¿A qué hora es tu partido?" para confirmar qué incluye antes de dar el beneficio
+- Solo aplica lunes a jueves
+
 CLASES (precio por persona):
 - Individual: $550 MXN
 - 2 personas: $300 MXN c/u
@@ -340,7 +349,6 @@ app.post("/webhook", async function(req, res) {
  try {
    const body = req.body;
    if (!body) { return; }
-   // Log completo para diagnosticar eventos de agente
    console.log("WEBHOOK body:", JSON.stringify(body).substring(0, 400));
    if (body.eventType === "agent_message" ||
        (body.eventType === "message" && body.senderType === "agent") ||
@@ -368,9 +376,7 @@ app.post("/webhook", async function(req, res) {
      console.log("Conversacion en handoff, ignorando bot");
      return;
    }
-   // Delay de 2 segundos para dar tiempo a que llegue webhook de agente si ya está atendiendo
    await new Promise(resolve => setTimeout(resolve, 2000));
-   // Re-verificar handoff después del delay
    if (enHandoff[from]) {
      console.log("Agente tomo el caso durante el delay, Raccoon no interviene");
      return;
