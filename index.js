@@ -340,8 +340,11 @@ app.post("/webhook", async function(req, res) {
  try {
    const body = req.body;
    if (!body) { return; }
+   // Log completo para diagnosticar eventos de agente
+   console.log("WEBHOOK body:", JSON.stringify(body).substring(0, 400));
    if (body.eventType === "agent_message" ||
-       (body.eventType === "message" && body.senderType === "agent")) {
+       (body.eventType === "message" && body.senderType === "agent") ||
+       (body.senderType && body.senderType !== "customer")) {
      const numero = body.waId;
      if (body.text && body.text.trim() === "/libre") {
        delete enHandoff[numero];
@@ -360,9 +363,16 @@ app.post("/webhook", async function(req, res) {
    const from = body.waId;
    const text = body.text;
    if (!from || !text) { return; }
-   console.log("Mensaje de " + from + ": " + text);
+   console.log("Mensaje cliente de " + from + ": " + text);
    if (enHandoff[from]) {
      console.log("Conversacion en handoff, ignorando bot");
+     return;
+   }
+   // Delay de 2 segundos para dar tiempo a que llegue webhook de agente si ya está atendiendo
+   await new Promise(resolve => setTimeout(resolve, 2000));
+   // Re-verificar handoff después del delay
+   if (enHandoff[from]) {
+     console.log("Agente tomo el caso durante el delay, Raccoon no interviene");
      return;
    }
    if (esConfirmacionPasiva(text)) {
