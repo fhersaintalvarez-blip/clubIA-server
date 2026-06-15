@@ -5,10 +5,15 @@ const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const WATI_API_TOKEN = process.env.WATI_API_TOKEN;
 const WATI_ENDPOINT = process.env.WATI_ENDPOINT;
 const AGENTES = [
- "guzmanleslie314@gmail.com",
- "Cami.lajeme@gmail.com",
- "fhersaintalvarez@gmail.com"
+"guzmanleslie314@gmail.com",
+"Cami.lajeme@gmail.com",
+"fhersaintalvarez@gmail.com"
 ];
+const EMAILS_AGENTES = new Set([
+"guzmanleslie314@gmail.com",
+"Cami.lajeme@gmail.com",
+"fhersaintalvarez@gmail.com"
+]);
 let turnoAgente = 0;
 const SYSTEM_PROMPT = `Eres Raccoon, el asistente virtual de ProPadel Merida, el mejor club de padel de Merida, Yucatan. Respondes mensajes de WhatsApp de clientes de forma amable, corta y profesional. Usa maximo 2 emojis por mensaje. El tono es relajado y amigable, como el ambiente del club. NUNCA te presentes ni digas tu nombre en las respuestas.
 IDIOMA: Responde siempre en el mismo idioma que usa el cliente. Si escribe en inglés, responde en inglés con el mismo tono amigable.
@@ -61,8 +66,8 @@ EVENTOS ESPECIALES:
 CIRCUITO DE LA CAGUAMA (convenio externo):
 - No es un torneo del club, es un circuito externo con convenio con ProPadel
 - Si el cliente menciona "partido de la caguama", "circuito de la caguama", "torneo de la caguama" o similar, confirma el beneficio segun horario:
-  * Lun-Jue 6pm a 8pm: tu reserva incluye pelotas Boltic + 1 caguama 🎾🍺
-  * Lun-Jue 8pm en adelante: tu reserva incluye 1 caguama 🍺
+ * Lun-Jue 6pm a 8pm: tu reserva incluye pelotas Boltic + 1 caguama 🎾🍺
+ * Lun-Jue 8pm en adelante: tu reserva incluye 1 caguama 🍺
 - SIEMPRE pregunta: "¿A qué hora es tu partido?" para confirmar qué incluye antes de dar el beneficio
 - Solo aplica lunes a jueves
 
@@ -98,9 +103,9 @@ CURSO DE VERANO 2026:
 - Lunes a jueves, 9:00 am a 12:30 pm
 - Edades: 5 a 21 anos
 - Paquetes:
-  * 1 dia: $450 MXN
-  * 1 semana: $1,500 MXN
-  * 5 semanas: $6,400 MXN
+ * 1 dia: $450 MXN
+ * 1 semana: $1,500 MXN
+ * 5 semanas: $6,400 MXN
 - Incluye: entrenamiento, alberca y lunch
 - Niveles: Iniciacion y Formacion
 - 10% de descuento al inscribir a un amiguito
@@ -187,16 +192,13 @@ EVENTOS Y CELEBRACIONES:
 RENTA Y VENTA DE EQUIPO:
 - Renta de palas: $50 MXN por sesion
 - Venta de botes de pelotas:
-  * Boltic: $180 MXN
-  * Bullpadel: $200 MXN
-
-RENTA DE PALAS:
-- Rentamos palas para quien no traiga la suya
-- Para precio y disponibilidad, preguntar directamente en el club
+ * Boltic: $180 MXN
+ * Bullpadel: $200 MXN
 
 PELOTAS EN VENTA:
 - Boltic: $180 MXN el bote
 - Bullpadel: $200 MXN el bote
+
 UBICACION:
 - Calle 21 sin numero, Cholul, Merida, Yucatan
 - Cholul es una comisaria al norte de Merida
@@ -225,232 +227,231 @@ const conversaciones = {};
 const enHandoff = {};
 const DIAS = ["domingo", "lunes", "martes", "miercoles", "jueves", "viernes", "sabado"];
 const HORARIOS = {
- 0: { inicio: 7, fin: 14 },
- 1: { inicio: 6, fin: 23.5 },
- 2: { inicio: 6, fin: 23.5 },
- 3: { inicio: 6, fin: 23.5 },
- 4: { inicio: 6, fin: 23.5 },
- 5: { inicio: 6, fin: 23.5 },
- 6: { inicio: 7, fin: 16 }
+0: { inicio: 7, fin: 16 },
+1: { inicio: 6, fin: 23.5 },
+2: { inicio: 6, fin: 23.5 },
+3: { inicio: 6, fin: 23.5 },
+4: { inicio: 6, fin: 23.5 },
+5: { inicio: 6, fin: 23.5 },
+6: { inicio: 7, fin: 14 }
 };
 function getHoraMexico() {
- const ahora = new Date();
- const offsetMexico = -6;
- const utc = ahora.getTime() + ahora.getTimezoneOffset() * 60000;
- return new Date(utc + offsetMexico * 3600000);
+return new Date(new Date().toLocaleString("en-US", { timeZone: "America/Merida" }));
 }
 function estaAbierto() {
- const horaMexico = getHoraMexico();
- const dia = horaMexico.getDay();
- const hora = horaMexico.getHours() + horaMexico.getMinutes() / 60;
- const horario = HORARIOS[dia];
- return hora >= horario.inicio && hora < horario.fin;
+const horaMexico = getHoraMexico();
+const dia = horaMexico.getDay();
+const hora = horaMexico.getHours() + horaMexico.getMinutes() / 60;
+const horario = HORARIOS[dia];
+return hora >= horario.inicio && hora < horario.fin;
 }
 function getFechaContexto() {
- const horaMexico = getHoraMexico();
- const dia = DIAS[horaMexico.getDay()];
- const hora = horaMexico.getHours();
- const minutos = horaMexico.getMinutes().toString().padStart(2, "0");
- return `Hoy es ${dia}. Hora actual en Merida: ${hora}:${minutos}.`;
+const horaMexico = getHoraMexico();
+const dia = DIAS[horaMexico.getDay()];
+const hora = horaMexico.getHours();
+const minutos = horaMexico.getMinutes().toString().padStart(2, "0");
+return `Hoy es ${dia}. Hora actual en Merida: ${hora}:${minutos}.`;
 }
 function detectarIdioma(texto) {
- const palabrasIngles = ["how", "what", "when", "where", "who", "can", "is", "are", "do", "does", "rent", "book", "court", "price", "cost", "please", "yes", "no", "thanks", "hello", "hi"];
- const t = texto.toLowerCase();
- const hits = palabrasIngles.filter(p => t.includes(p)).length;
- return hits >= 2 ? "en" : "es";
+const palabrasIngles = ["how", "what", "when", "where", "who", "can", "is", "are", "do", "does", "rent", "book", "court", "price", "cost", "please", "yes", "no", "thanks", "hello", "hi"];
+const t = texto.toLowerCase();
+const hits = palabrasIngles.filter(p => t.includes(p)).length;
+return hits >= 2 ? "en" : "es";
 }
 function esConfirmacionPasiva(texto) {
- const frases = [
-   "confirmo", "confirmado", "confirmada", "ok", "okay", "listo", "gracias",
-   "perfecto", "de acuerdo", "entendido", "recibido", "ahi estare", "ahí estaré",
-   "ahi estamos", "nos vemos", "va", "sale", "👍", "✅"
- ];
- const t = texto.toLowerCase().trim();
- return frases.some(f => t === f || t === f + "!" || t === f + ".");
+const frases = [
+  "confirmo", "confirmado", "confirmada", "ok", "okay", "listo", "gracias",
+  "perfecto", "de acuerdo", "entendido", "recibido", "ahi estare", "ahí estaré",
+  "ahi estamos", "nos vemos", "va", "sale", "👍", "✅"
+];
+const t = texto.toLowerCase().trim();
+return frases.some(f => t === f || t === f + "!" || t === f + ".");
 }
 function quiereHumano(texto) {
- const frases = [
-   "hablar con", "habla con", "quiero persona", "agente", "cajera",
-   "humano", "persona real", "atiendeme", "atiéndeme", "necesito ayuda",
-   "no me ayuda", "no entiendes", "quiero hablar", "llamar", "llamen"
- ];
- const t = texto.toLowerCase();
- return frases.some(f => t.includes(f));
+const frases = [
+  "hablar con", "habla con", "quiero persona", "agente", "cajera",
+  "humano", "persona real", "atiendeme", "atiéndeme", "necesito ayuda",
+  "no me ayuda", "no entiendes", "quiero hablar", "llamar", "llamen"
+];
+const t = texto.toLowerCase();
+return frases.some(f => t.includes(f));
 }
 function quiereInscribirse(texto) {
- const frases = [
-   "me inscribo", "quiero inscribirme", "ya me decidi", "ya me decidí",
-   "quiero reservar", "voy a reservar", "quiero apartar", "quiero contratar",
-   "me anoto", "me apunto", "ya quiero", "cómo pago", "como pago",
-   "donde pago", "dónde pago", "cuándo puedo ir", "cuando puedo ir",
-   "empiezo", "cuando empiezo", "cuándo empiezo"
- ];
- const t = texto.toLowerCase();
- return frases.some(f => t.includes(f));
+const frases = [
+  "me inscribo", "quiero inscribirme", "ya me decidi", "ya me decidí",
+  "quiero reservar", "voy a reservar", "quiero apartar", "quiero contratar",
+  "me anoto", "me apunto", "ya quiero", "cómo pago", "como pago",
+  "donde pago", "dónde pago", "cuándo puedo ir", "cuando puedo ir",
+  "empiezo", "cuando empiezo", "cuándo empiezo"
+];
+const t = texto.toLowerCase();
+return frases.some(f => t.includes(f));
 }
 function botNoSabe(respuesta) {
- return respuesta.toLowerCase().includes("en breve te confirman");
+return respuesta.toLowerCase().includes("en breve te confirman");
 }
 async function enviarMensaje(numero, texto) {
- const url = WATI_ENDPOINT + "/api/v1/sendSessionMessage/" + numero +
-   "?messageText=" + encodeURIComponent(texto);
- const res = await fetch(url, {
-   method: "POST",
-   headers: {
-     "Content-Type": "application/json",
-     "Authorization": "Bearer " + WATI_API_TOKEN
-   },
-   body: JSON.stringify({})
- });
- return res.json();
+const url = WATI_ENDPOINT + "/api/v1/sendSessionMessage/" + numero +
+  "?messageText=" + encodeURIComponent(texto);
+const res = await fetch(url, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "Authorization": "Bearer " + WATI_API_TOKEN
+  },
+  body: JSON.stringify({})
+});
+return res.json();
 }
 async function asignarAgente(numero) {
- const agente = AGENTES[turnoAgente % AGENTES.length];
- turnoAgente++;
- console.log("Asignando a agente: " + agente);
- try {
-   const url = WATI_ENDPOINT + "/api/v1/assignConversacion/" + numero;
-   const res = await fetch(url, {
-     method: "POST",
-     headers: {
-       "Content-Type": "application/json",
-       "Authorization": "Bearer " + WATI_API_TOKEN
-     },
-     body: JSON.stringify({ assignedTo: agente })
-   });
-   const text = await res.text();
-   console.log("Asignacion Wati response: " + text);
- } catch (err) {
-   console.log("Error asignando agente: " + err.message);
- }
+const agente = AGENTES[turnoAgente % AGENTES.length];
+turnoAgente++;
+console.log("Asignando a agente: " + agente);
+try {
+  const url = WATI_ENDPOINT + "/api/v1/assignConversacion/" + numero;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + WATI_API_TOKEN
+    },
+    body: JSON.stringify({ assignedTo: agente })
+  });
+  const text = await res.text();
+  console.log("Asignacion Wati response: " + text);
+} catch (err) {
+  console.log("Error asignando agente: " + err.message);
+}
 }
 async function notificarAgente(numero) {
- const agente = AGENTES[turnoAgente % AGENTES.length];
- turnoAgente++;
- console.log("Notificando a agente: " + agente);
- try {
-   const url = WATI_ENDPOINT + "/api/v1/assignConversacion/" + numero;
-   const res = await fetch(url, {
-     method: "POST",
-     headers: {
-       "Content-Type": "application/json",
-       "Authorization": "Bearer " + WATI_API_TOKEN
-     },
-     body: JSON.stringify({ assignedTo: agente })
-   });
-   const text = await res.text();
-   console.log("Notificacion agente response: " + text);
- } catch (err) {
-   console.log("Error notificando agente: " + err.message);
- }
+const agente = AGENTES[turnoAgente % AGENTES.length];
+turnoAgente++;
+console.log("Notificando a agente: " + agente);
+try {
+  const url = WATI_ENDPOINT + "/api/v1/assignConversacion/" + numero;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + WATI_API_TOKEN
+    },
+    body: JSON.stringify({ assignedTo: agente })
+  });
+  const text = await res.text();
+  console.log("Notificacion agente response: " + text);
+} catch (err) {
+  console.log("Error notificando agente: " + err.message);
+}
 }
 app.post("/webhook", async function(req, res) {
- res.sendStatus(200);
- try {
-   const body = req.body;
-   if (!body) { return; }
-   console.log("WEBHOOK body:", JSON.stringify(body).substring(0, 400));
-   if (body.eventType === "agent_message" ||
-       (body.eventType === "message" && body.senderType === "agent") ||
-       (body.senderType && body.senderType !== "customer")) {
-     const numero = body.waId;
-     if (body.text && body.text.trim() === "/libre") {
-       delete enHandoff[numero];
-       delete conversaciones[numero];
-       console.log("Handoff liberado por agente para: " + numero);
-       await enviarMensaje(numero, "¡Hola de nuevo! 🦝 ¿En qué más te puedo ayudar?");
-     } else {
-       if (!enHandoff[numero]) {
-         enHandoff[numero] = true;
-         console.log("Agente respondio, Raccoon silenciado para: " + numero);
-       }
-     }
-     return;
-   }
-   if (body.eventType !== "message") { return; }
-   const from = body.waId;
-   const text = body.text;
-   if (!from || !text) { return; }
-   console.log("Mensaje cliente de " + from + ": " + text);
-   if (enHandoff[from]) {
-     console.log("Conversacion en handoff, ignorando bot");
-     return;
-   }
-   await new Promise(resolve => setTimeout(resolve, 2000));
-   if (enHandoff[from]) {
-     console.log("Agente tomo el caso durante el delay, Raccoon no interviene");
-     return;
-   }
-   if (esConfirmacionPasiva(text)) {
-     console.log("Confirmacion pasiva, Raccoon no responde: " + text);
-     return;
-   }
-   if (quiereHumano(text)) {
-     console.log("Cliente pide humano");
-     enHandoff[from] = true;
-     const esInglesH = /^[a-zA-Z\s\d.,!?'"-]+$/.test(text.trim());
-     const msgHumano = esInglesH
-       ? "Of course! 🙋 One of our team members will be with you shortly."
-       : "¡Claro! 🙋 En un momento una de nuestras cajeras te atiende personalmente.";
-     await enviarMensaje(from, msgHumano);
-     await asignarAgente(from);
-     return;
-   }
-   if (quiereInscribirse(text)) {
-     console.log("Cliente quiere inscribirse, activando handoff");
-     enHandoff[from] = true;
-     const esIngles = /^[a-zA-Z\s\d.,!?'"-]+$/.test(text.trim());
-     const msgInscripcion = esIngles
-       ? "Perfect! 🙌 Connecting you with the team right now to complete your registration."
-       : "¡Excelente! 🙌 Ahora mismo te conecto con el equipo para cerrar tu inscripción.";
-     await enviarMensaje(from, msgInscripcion);
-     await asignarAgente(from);
-     return;
-   }
-   if (!conversaciones[from]) { conversaciones[from] = []; }
-   conversaciones[from].push({ role: "user", content: text });
-   if (conversaciones[from].length > 10) {
-     conversaciones[from] = conversaciones[from].slice(-10);
-   }
-   const esCerrado = !estaAbierto();
-   const systemConFecha = SYSTEM_PROMPT + "\n\nCONTEXTO ACTUAL: " + getFechaContexto() +
-     (esCerrado ? " El club está cerrado en este momento. Si es el primer mensaje del cliente, saluda normal y menciona brevemente que ya cerramos pero que con gusto le ayudas con info. Si ya hay historial, responde directo sin volver a mencionar el cierre." : "");
-   const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
-     method: "POST",
-     headers: {
-       "Content-Type": "application/json",
-       "x-api-key": ANTHROPIC_API_KEY,
-       "anthropic-version": "2023-06-01"
-     },
-     body: JSON.stringify({
-       model: "claude-opus-4-8",
-       max_tokens: 300,
-       system: systemConFecha,
-       messages: conversaciones[from]
-     })
-   });
-   const aiData = await aiRes.json();
-   if (aiData.error) {
-     console.log("Error IA: " + aiData.error.message);
-   }
-   const reply = (aiData.content && aiData.content[0])
-     ? aiData.content[0].text
-     : "en breve te confirman";
-   console.log("Respuesta IA: " + reply);
-   conversaciones[from].push({ role: "assistant", content: reply });
-   if (botNoSabe(reply)) {
-     console.log("Bot no sabe, notificando agente sin cortar conversacion");
-     await notificarAgente(from);
-   }
-   await enviarMensaje(from, reply);
- } catch (err) {
-   console.error("Error: " + err.message);
- }
+res.sendStatus(200);
+try {
+  const body = req.body;
+  if (!body) { return; }
+  console.log("WEBHOOK body:", JSON.stringify(body).substring(0, 400));
+  // Detectar mensaje de agente por senderType O por email
+  if (body.eventType === "agent_message" ||
+      (body.eventType === "message" && body.senderType === "agent") ||
+      (body.senderType && body.senderType !== "customer") ||
+      (body.senderEmail && EMAILS_AGENTES.has(body.senderEmail))) {
+    const numero = body.waId;
+    if (body.text && body.text.trim() === "/libre") {
+      delete enHandoff[numero];
+      delete conversaciones[numero];
+      console.log("Handoff liberado por agente para: " + numero);
+      await enviarMensaje(numero, "¡Hola de nuevo! 🦝 ¿En qué más te puedo ayudar?");
+    } else {
+      if (!enHandoff[numero]) {
+        enHandoff[numero] = true;
+        console.log("Agente respondio, Raccoon silenciado para: " + numero);
+      }
+    }
+    return;
+  }
+  if (body.eventType !== "message") { return; }
+  const from = body.waId;
+  const text = body.text;
+  if (!from || !text) { return; }
+  console.log("Mensaje cliente de " + from + ": " + text);
+  if (enHandoff[from]) {
+    console.log("Conversacion en handoff, ignorando bot");
+    return;
+  }
+  await new Promise(resolve => setTimeout(resolve, 2000));
+  if (enHandoff[from]) {
+    console.log("Agente tomo el caso durante el delay, Raccoon no interviene");
+    return;
+  }
+  if (esConfirmacionPasiva(text)) {
+    console.log("Confirmacion pasiva, Raccoon no responde: " + text);
+    return;
+  }
+  if (quiereHumano(text)) {
+    console.log("Cliente pide humano");
+    enHandoff[from] = true;
+    const esInglesH = /^[a-zA-Z\s\d.,!?'"-]+$/.test(text.trim());
+    const msgHumano = esInglesH
+      ? "Of course! 🙋 One of our team members will be with you shortly."
+      : "¡Claro! 🙋 En un momento una de nuestras cajeras te atiende personalmente.";
+    await enviarMensaje(from, msgHumano);
+    await asignarAgente(from);
+    return;
+  }
+  if (quiereInscribirse(text)) {
+    console.log("Cliente quiere inscribirse, activando handoff");
+    enHandoff[from] = true;
+    const esIngles = /^[a-zA-Z\s\d.,!?'"-]+$/.test(text.trim());
+    const msgInscripcion = esIngles
+      ? "Perfect! 🙌 Connecting you with the team right now to complete your registration."
+      : "¡Excelente! 🙌 Ahora mismo te conecto con el equipo para cerrar tu inscripción.";
+    await enviarMensaje(from, msgInscripcion);
+    await asignarAgente(from);
+    return;
+  }
+  if (!conversaciones[from]) { conversaciones[from] = []; }
+  conversaciones[from].push({ role: "user", content: text });
+  if (conversaciones[from].length > 10) {
+    conversaciones[from] = conversaciones[from].slice(-10);
+  }
+  const esCerrado = !estaAbierto();
+  const systemConFecha = SYSTEM_PROMPT + "\n\nCONTEXTO ACTUAL: " + getFechaContexto() +
+    (esCerrado ? " El club está cerrado en este momento. Si es el primer mensaje del cliente, saluda normal y menciona brevemente que ya cerramos pero que con gusto le ayudas con info. Si ya hay historial, responde directo sin volver a mencionar el cierre." : "");
+  const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": ANTHROPIC_API_KEY,
+      "anthropic-version": "2023-06-01"
+    },
+    body: JSON.stringify({
+      model: "claude-opus-4-8",
+      max_tokens: 300,
+      system: systemConFecha,
+      messages: conversaciones[from]
+    })
+  });
+  const aiData = await aiRes.json();
+  if (aiData.error) {
+    console.log("Error IA: " + aiData.error.message);
+  }
+  const reply = (aiData.content && aiData.content[0])
+    ? aiData.content[0].text
+    : "en breve te confirman";
+  console.log("Respuesta IA: " + reply);
+  conversaciones[from].push({ role: "assistant", content: reply });
+  if (botNoSabe(reply)) {
+    console.log("Bot no sabe, notificando agente sin cortar conversacion");
+    await notificarAgente(from);
+  }
+  await enviarMensaje(from, reply);
+} catch (err) {
+  console.error("Error: " + err.message);
+}
 });
 app.get("/", function(req, res) {
- res.send("ClubIA activo");
+res.send("ClubIA activo");
 });
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, function() {
- console.log("ClubIA en puerto " + PORT);
+console.log("ClubIA en puerto " + PORT);
 });
