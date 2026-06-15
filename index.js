@@ -250,6 +250,15 @@ function detectarIdioma(texto) {
  const hits = palabrasIngles.filter(p => t.includes(p)).length;
  return hits >= 2 ? "en" : "es";
 }
+function esConfirmacionPasiva(texto) {
+ const frases = [
+   "confirmo", "confirmado", "confirmada", "ok", "okay", "listo", "gracias",
+   "perfecto", "de acuerdo", "entendido", "recibido", "ahi estare", "ahí estaré",
+   "ahi estamos", "nos vemos", "va", "sale", "👍", "✅"
+ ];
+ const t = texto.toLowerCase().trim();
+ return frases.some(f => t === f || t === f + "!" || t === f + ".");
+}
 function quiereHumano(texto) {
  const frases = [
    "hablar con", "habla con", "quiero persona", "agente", "cajera",
@@ -354,6 +363,10 @@ app.post("/webhook", async function(req, res) {
    console.log("Mensaje de " + from + ": " + text);
    if (enHandoff[from]) {
      console.log("Conversacion en handoff, ignorando bot");
+     return;
+   }
+   if (esConfirmacionPasiva(text)) {
+     console.log("Confirmacion pasiva, Raccoon no responde: " + text);
      return;
    }
    if (quiereHumano(text)) {
