@@ -5,14 +5,14 @@ const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const WATI_API_TOKEN = process.env.WATI_API_TOKEN;
 const WATI_ENDPOINT = process.env.WATI_ENDPOINT;
 const AGENTES = [
-"guzmanleslie314@gmail.com",
-"Cami.lajeme@gmail.com",
-"fhersaintalvarez@gmail.com"
+  "guzmanleslie314@gmail.com",
+  "Cami.lajeme@gmail.com",
+  "fhersaintalvarez@gmail.com"
 ];
 const EMAILS_AGENTES = new Set([
-"guzmanleslie314@gmail.com",
-"Cami.lajeme@gmail.com",
-"fhersaintalvarez@gmail.com"
+  "guzmanleslie314@gmail.com",
+  "Cami.lajeme@gmail.com",
+  "fhersaintalvarez@gmail.com"
 ]);
 let turnoAgente = 0;
 const SYSTEM_PROMPT = `Eres Raccoon, el asistente virtual de ProPadel Merida, el mejor club de padel de Merida, Yucatan. Respondes mensajes de WhatsApp de clientes de forma amable, corta y profesional. Usa maximo 2 emojis por mensaje. El tono es relajado y amigable, como el ambiente del club. NUNCA te presentes ni digas tu nombre en las respuestas.
@@ -223,235 +223,292 @@ DETECCION DE INTENCION DE COMPRA:
 - Si el cliente dice que ya quiere inscribirse, ya se decidio, quiere reservar o contratar algo, responde: "¡Excelente! 🙌 Ahora mismo te conecto con el equipo para cerrar tu inscripcion." Eso activa handoff.
 
 IMPORTANTE: Si no sabes algo, di exactamente: "en breve te confirman". NUNCA inventes precios o servicios.`;
+
 const conversaciones = {};
 const enHandoff = {};
+
+// ── NUEVO: rastrear conversaciones iniciadas por agente via plantilla ──
+const iniciadasPorAgente = new Set();
+
 const DIAS = ["domingo", "lunes", "martes", "miercoles", "jueves", "viernes", "sabado"];
 const HORARIOS = {
-0: { inicio: 7, fin: 16 },
-1: { inicio: 6, fin: 23.5 },
-2: { inicio: 6, fin: 23.5 },
-3: { inicio: 6, fin: 23.5 },
-4: { inicio: 6, fin: 23.5 },
-5: { inicio: 6, fin: 23.5 },
-6: { inicio: 7, fin: 14 }
+  0: { inicio: 7, fin: 16 },
+  1: { inicio: 6, fin: 23.5 },
+  2: { inicio: 6, fin: 23.5 },
+  3: { inicio: 6, fin: 23.5 },
+  4: { inicio: 6, fin: 23.5 },
+  5: { inicio: 6, fin: 23.5 },
+  6: { inicio: 7, fin: 14 }
 };
+
 function getHoraMexico() {
-return new Date(new Date().toLocaleString("en-US", { timeZone: "America/Merida" }));
+  return new Date(new Date().toLocaleString("en-US", { timeZone: "America/Merida" }));
 }
 function estaAbierto() {
-const horaMexico = getHoraMexico();
-const dia = horaMexico.getDay();
-const hora = horaMexico.getHours() + horaMexico.getMinutes() / 60;
-const horario = HORARIOS[dia];
-return hora >= horario.inicio && hora < horario.fin;
+  const horaMexico = getHoraMexico();
+  const dia = horaMexico.getDay();
+  const hora = horaMexico.getHours() + horaMexico.getMinutes() / 60;
+  const horario = HORARIOS[dia];
+  return hora >= horario.inicio && hora < horario.fin;
 }
 function getFechaContexto() {
-const horaMexico = getHoraMexico();
-const dia = DIAS[horaMexico.getDay()];
-const hora = horaMexico.getHours();
-const minutos = horaMexico.getMinutes().toString().padStart(2, "0");
-return `Hoy es ${dia}. Hora actual en Merida: ${hora}:${minutos}.`;
-}
-function detectarIdioma(texto) {
-const palabrasIngles = ["how", "what", "when", "where", "who", "can", "is", "are", "do", "does", "rent", "book", "court", "price", "cost", "please", "yes", "no", "thanks", "hello", "hi"];
-const t = texto.toLowerCase();
-const hits = palabrasIngles.filter(p => t.includes(p)).length;
-return hits >= 2 ? "en" : "es";
+  const horaMexico = getHoraMexico();
+  const dia = DIAS[horaMexico.getDay()];
+  const hora = horaMexico.getHours();
+  const minutos = horaMexico.getMinutes().toString().padStart(2, "0");
+  return `Hoy es ${dia}. Hora actual en Merida: ${hora}:${minutos}.`;
 }
 function esConfirmacionPasiva(texto) {
-const frases = [
-  "confirmo", "confirmado", "confirmada", "ok", "okay", "listo", "gracias",
-  "perfecto", "de acuerdo", "entendido", "recibido", "ahi estare", "ahí estaré",
-  "ahi estamos", "nos vemos", "va", "sale", "👍", "✅"
-];
-const t = texto.toLowerCase().trim();
-return frases.some(f => t === f || t === f + "!" || t === f + ".");
+  const frases = [
+    "confirmo", "confirmado", "confirmada", "ok", "okay", "listo", "gracias",
+    "perfecto", "de acuerdo", "entendido", "recibido", "ahi estare", "ahí estaré",
+    "ahi estamos", "nos vemos", "va", "sale", "👍", "✅"
+  ];
+  const t = texto.toLowerCase().trim();
+  return frases.some(f => t === f || t === f + "!" || t === f + ".");
 }
 function quiereHumano(texto) {
-const frases = [
-  "hablar con", "habla con", "quiero persona", "agente", "cajera",
-  "humano", "persona real", "atiendeme", "atiéndeme", "necesito ayuda",
-  "no me ayuda", "no entiendes", "quiero hablar", "llamar", "llamen"
-];
-const t = texto.toLowerCase();
-return frases.some(f => t.includes(f));
+  const frases = [
+    "hablar con", "habla con", "quiero persona", "agente", "cajera",
+    "humano", "persona real", "atiendeme", "atiéndeme", "necesito ayuda",
+    "no me ayuda", "no entiendes", "quiero hablar", "llamar", "llamen"
+  ];
+  const t = texto.toLowerCase();
+  return frases.some(f => t.includes(f));
 }
 function quiereInscribirse(texto) {
-const frases = [
-  "me inscribo", "quiero inscribirme", "ya me decidi", "ya me decidí",
-  "quiero reservar", "voy a reservar", "quiero apartar", "quiero contratar",
-  "me anoto", "me apunto", "ya quiero", "cómo pago", "como pago",
-  "donde pago", "dónde pago", "cuándo puedo ir", "cuando puedo ir",
-  "empiezo", "cuando empiezo", "cuándo empiezo"
-];
-const t = texto.toLowerCase();
-return frases.some(f => t.includes(f));
+  const frases = [
+    "me inscribo", "quiero inscribirme", "ya me decidi", "ya me decidí",
+    "quiero reservar", "voy a reservar", "quiero apartar", "quiero contratar",
+    "me anoto", "me apunto", "ya quiero", "cómo pago", "como pago",
+    "donde pago", "dónde pago", "cuándo puedo ir", "cuando puedo ir",
+    "empiezo", "cuando empiezo", "cuándo empiezo"
+  ];
+  const t = texto.toLowerCase();
+  return frases.some(f => t.includes(f));
 }
 function botNoSabe(respuesta) {
-return respuesta.toLowerCase().includes("en breve te confirman");
+  return respuesta.toLowerCase().includes("en breve te confirman");
 }
+
 async function enviarMensaje(numero, texto) {
-const url = WATI_ENDPOINT + "/api/v1/sendSessionMessage/" + numero +
-  "?messageText=" + encodeURIComponent(texto);
-const res = await fetch(url, {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-    "Authorization": "Bearer " + WATI_API_TOKEN
-  },
-  body: JSON.stringify({})
-});
-return res.json();
+  const url = WATI_ENDPOINT + "/api/v1/sendSessionMessage/" + numero +
+    "?messageText=" + encodeURIComponent(texto);
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + WATI_API_TOKEN
+    },
+    body: JSON.stringify({})
+  });
+  return res.json();
 }
+
 async function asignarAgente(numero) {
-const agente = AGENTES[turnoAgente % AGENTES.length];
-turnoAgente++;
-console.log("Asignando a agente: " + agente);
-try {
-  const url = WATI_ENDPOINT + "/api/v1/assignConversacion/" + numero;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": "Bearer " + WATI_API_TOKEN
-    },
-    body: JSON.stringify({ assignedTo: agente })
-  });
-  const text = await res.text();
-  console.log("Asignacion Wati response: " + text);
-} catch (err) {
-  console.log("Error asignando agente: " + err.message);
+  const agente = AGENTES[turnoAgente % AGENTES.length];
+  turnoAgente++;
+  console.log("Asignando a agente: " + agente);
+  try {
+    const url = WATI_ENDPOINT + "/api/v1/assignConversacion/" + numero;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + WATI_API_TOKEN
+      },
+      body: JSON.stringify({ assignedTo: agente })
+    });
+    const text = await res.text();
+    console.log("Asignacion Wati response: " + text);
+  } catch (err) {
+    console.log("Error asignando agente: " + err.message);
+  }
 }
-}
+
 async function notificarAgente(numero) {
-const agente = AGENTES[turnoAgente % AGENTES.length];
-turnoAgente++;
-console.log("Notificando a agente: " + agente);
-try {
-  const url = WATI_ENDPOINT + "/api/v1/assignConversacion/" + numero;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": "Bearer " + WATI_API_TOKEN
-    },
-    body: JSON.stringify({ assignedTo: agente })
-  });
-  const text = await res.text();
-  console.log("Notificacion agente response: " + text);
-} catch (err) {
-  console.log("Error notificando agente: " + err.message);
+  const agente = AGENTES[turnoAgente % AGENTES.length];
+  turnoAgente++;
+  console.log("Notificando a agente: " + agente);
+  try {
+    const url = WATI_ENDPOINT + "/api/v1/assignConversacion/" + numero;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + WATI_API_TOKEN
+      },
+      body: JSON.stringify({ assignedTo: agente })
+    });
+    const text = await res.text();
+    console.log("Notificacion agente response: " + text);
+  } catch (err) {
+    console.log("Error notificando agente: " + err.message);
+  }
 }
-}
+
 app.post("/webhook", async function(req, res) {
-res.sendStatus(200);
-try {
-  const body = req.body;
-  if (!body) { return; }
-  console.log("WEBHOOK body:", JSON.stringify(body).substring(0, 400));
-  // Detectar mensaje de agente por senderType O por email
-  if (body.eventType === "agent_message" ||
+  res.sendStatus(200);
+  try {
+    const body = req.body;
+    if (!body) { return; }
+    console.log("WEBHOOK body:", JSON.stringify(body).substring(0, 500));
+
+    const numero = body.waId;
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // BLOQUE 1: Mensaje enviado POR un agente (plantilla o sesion)
+    // Cuando Leslie/Camila mandan una plantilla, llega aqui primero
+    // Marcamos ese numero como "iniciado por agente" → Raccoon no entra
+    // ─────────────────────────────────────────────────────────────────────────
+    if (
+      body.eventType === "agent_message" ||
+      body.eventType === "template_message" ||
       (body.eventType === "message" && body.senderType === "agent") ||
       (body.senderType && body.senderType !== "customer") ||
-      (body.senderEmail && EMAILS_AGENTES.has(body.senderEmail))) {
-    const numero = body.waId;
-    if (body.text && body.text.trim() === "/libre") {
-      delete enHandoff[numero];
-      delete conversaciones[numero];
-      console.log("Handoff liberado por agente para: " + numero);
-      await enviarMensaje(numero, "¡Hola de nuevo! 🦝 ¿En qué más te puedo ayudar?");
-    } else {
-      if (!enHandoff[numero]) {
-        enHandoff[numero] = true;
-        console.log("Agente respondio, Raccoon silenciado para: " + numero);
+      (body.senderEmail && EMAILS_AGENTES.has(body.senderEmail))
+    ) {
+      if (numero) {
+        // Si el agente escribe /libre, reactivamos Raccoon
+        if (body.text && body.text.trim() === "/libre") {
+          delete enHandoff[numero];
+          iniciadasPorAgente.delete(numero);
+          delete conversaciones[numero];
+          console.log("Handoff liberado por agente para: " + numero);
+          await enviarMensaje(numero, "¡Hola de nuevo! 🦝 ¿En qué más te puedo ayudar?");
+        } else {
+          // Marcar como conversacion en manos del agente
+          enHandoff[numero] = true;
+          iniciadasPorAgente.add(numero);
+          console.log("[HANDOFF] Agente activo detectado, Raccoon silent: " + numero);
+        }
       }
+      return;
     }
-    return;
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // BLOQUE 2: Mensaje del CLIENTE
+    // ─────────────────────────────────────────────────────────────────────────
+    if (body.eventType !== "message") { return; }
+
+    const from = body.waId;
+    const text = body.text;
+    if (!from || !text) { return; }
+
+    console.log("Mensaje cliente de " + from + ": " + text);
+
+    // ── FIX CLAVE: Si esta conversacion fue iniciada por agente via plantilla
+    //    y el cliente responde → el agente sigue a cargo, Raccoon no entra ──
+    if (iniciadasPorAgente.has(from)) {
+      console.log("[HANDOFF] Respuesta a plantilla de agente, Raccoon silent: " + from);
+      enHandoff[from] = true;
+      return;
+    }
+
+    // ── Handoff activo normal ──
+    if (enHandoff[from]) {
+      console.log("Conversacion en handoff, ignorando bot");
+      return;
+    }
+
+    // ── Delay de 2s para que agente pueda tomar control antes que Raccoon ──
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    // Doble chequeo post-delay
+    if (enHandoff[from] || iniciadasPorAgente.has(from)) {
+      console.log("Agente tomo el caso durante el delay, Raccoon no interviene");
+      return;
+    }
+
+    // ── Confirmaciones pasivas (ok, gracias, etc) → Raccoon no responde ──
+    if (esConfirmacionPasiva(text)) {
+      console.log("Confirmacion pasiva, Raccoon no responde: " + text);
+      return;
+    }
+
+    // ── El cliente pide hablar con humano ──
+    if (quiereHumano(text)) {
+      console.log("Cliente pide humano");
+      enHandoff[from] = true;
+      const esInglesH = /^[a-zA-Z\s\d.,!?'"-]+$/.test(text.trim());
+      const msgHumano = esInglesH
+        ? "Of course! 🙋 One of our team members will be with you shortly."
+        : "¡Claro! 🙋 En un momento una de nuestras cajeras te atiende personalmente.";
+      await enviarMensaje(from, msgHumano);
+      await asignarAgente(from);
+      return;
+    }
+
+    // ── El cliente quiere inscribirse/comprar ──
+    if (quiereInscribirse(text)) {
+      console.log("Cliente quiere inscribirse, activando handoff");
+      enHandoff[from] = true;
+      const esIngles = /^[a-zA-Z\s\d.,!?'"-]+$/.test(text.trim());
+      const msgInscripcion = esIngles
+        ? "Perfect! 🙌 Connecting you with the team right now to complete your registration."
+        : "¡Excelente! 🙌 Ahora mismo te conecto con el equipo para cerrar tu inscripción.";
+      await enviarMensaje(from, msgInscripcion);
+      await asignarAgente(from);
+      return;
+    }
+
+    // ── Conversacion normal con IA ──
+    if (!conversaciones[from]) { conversaciones[from] = []; }
+    conversaciones[from].push({ role: "user", content: text });
+    if (conversaciones[from].length > 10) {
+      conversaciones[from] = conversaciones[from].slice(-10);
+    }
+
+    const esCerrado = !estaAbierto();
+    const systemConFecha = SYSTEM_PROMPT + "\n\nCONTEXTO ACTUAL: " + getFechaContexto() +
+      (esCerrado
+        ? " El club está cerrado en este momento. Si es el primer mensaje del cliente, saluda normal y menciona brevemente que ya cerramos pero que con gusto le ayudas con info. Si ya hay historial, responde directo sin volver a mencionar el cierre."
+        : "");
+
+    const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01"
+      },
+      body: JSON.stringify({
+        model: "claude-opus-4-8",
+        max_tokens: 300,
+        system: systemConFecha,
+        messages: conversaciones[from]
+      })
+    });
+
+    const aiData = await aiRes.json();
+    if (aiData.error) {
+      console.log("Error IA: " + aiData.error.message);
+    }
+
+    const reply = (aiData.content && aiData.content[0])
+      ? aiData.content[0].text
+      : "en breve te confirman";
+
+    console.log("Respuesta IA: " + reply);
+    conversaciones[from].push({ role: "assistant", content: reply });
+
+    if (botNoSabe(reply)) {
+      console.log("Bot no sabe, notificando agente sin cortar conversacion");
+      await notificarAgente(from);
+    }
+
+    await enviarMensaje(from, reply);
+
+  } catch (err) {
+    console.error("Error: " + err.message);
   }
-  if (body.eventType !== "message") { return; }
-  const from = body.waId;
-  const text = body.text;
-  if (!from || !text) { return; }
-  console.log("Mensaje cliente de " + from + ": " + text);
-  if (enHandoff[from]) {
-    console.log("Conversacion en handoff, ignorando bot");
-    return;
-  }
-  await new Promise(resolve => setTimeout(resolve, 2000));
-  if (enHandoff[from]) {
-    console.log("Agente tomo el caso durante el delay, Raccoon no interviene");
-    return;
-  }
-  if (esConfirmacionPasiva(text)) {
-    console.log("Confirmacion pasiva, Raccoon no responde: " + text);
-    return;
-  }
-  if (quiereHumano(text)) {
-    console.log("Cliente pide humano");
-    enHandoff[from] = true;
-    const esInglesH = /^[a-zA-Z\s\d.,!?'"-]+$/.test(text.trim());
-    const msgHumano = esInglesH
-      ? "Of course! 🙋 One of our team members will be with you shortly."
-      : "¡Claro! 🙋 En un momento una de nuestras cajeras te atiende personalmente.";
-    await enviarMensaje(from, msgHumano);
-    await asignarAgente(from);
-    return;
-  }
-  if (quiereInscribirse(text)) {
-    console.log("Cliente quiere inscribirse, activando handoff");
-    enHandoff[from] = true;
-    const esIngles = /^[a-zA-Z\s\d.,!?'"-]+$/.test(text.trim());
-    const msgInscripcion = esIngles
-      ? "Perfect! 🙌 Connecting you with the team right now to complete your registration."
-      : "¡Excelente! 🙌 Ahora mismo te conecto con el equipo para cerrar tu inscripción.";
-    await enviarMensaje(from, msgInscripcion);
-    await asignarAgente(from);
-    return;
-  }
-  if (!conversaciones[from]) { conversaciones[from] = []; }
-  conversaciones[from].push({ role: "user", content: text });
-  if (conversaciones[from].length > 10) {
-    conversaciones[from] = conversaciones[from].slice(-10);
-  }
-  const esCerrado = !estaAbierto();
-  const systemConFecha = SYSTEM_PROMPT + "\n\nCONTEXTO ACTUAL: " + getFechaContexto() +
-    (esCerrado ? " El club está cerrado en este momento. Si es el primer mensaje del cliente, saluda normal y menciona brevemente que ya cerramos pero que con gusto le ayudas con info. Si ya hay historial, responde directo sin volver a mencionar el cierre." : "");
-  const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": ANTHROPIC_API_KEY,
-      "anthropic-version": "2023-06-01"
-    },
-    body: JSON.stringify({
-      model: "claude-opus-4-8",
-      max_tokens: 300,
-      system: systemConFecha,
-      messages: conversaciones[from]
-    })
-  });
-  const aiData = await aiRes.json();
-  if (aiData.error) {
-    console.log("Error IA: " + aiData.error.message);
-  }
-  const reply = (aiData.content && aiData.content[0])
-    ? aiData.content[0].text
-    : "en breve te confirman";
-  console.log("Respuesta IA: " + reply);
-  conversaciones[from].push({ role: "assistant", content: reply });
-  if (botNoSabe(reply)) {
-    console.log("Bot no sabe, notificando agente sin cortar conversacion");
-    await notificarAgente(from);
-  }
-  await enviarMensaje(from, reply);
-} catch (err) {
-  console.error("Error: " + err.message);
-}
 });
+
 app.get("/", function(req, res) {
-res.send("ClubIA activo");
+  res.send("ClubIA 🦝 activo");
 });
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, function() {
-console.log("ClubIA en puerto " + PORT);
+  console.log("ClubIA en puerto " + PORT);
 });
