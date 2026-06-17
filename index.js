@@ -384,10 +384,8 @@ app.post("/webhook", async function(req, res) {
 
    const numero = body.waId;
 
-   // ── Detectar mensaje del club (agente o plantilla) ──
-   // owner: false = mensaje saliente del club (plantilla o agente)
+   // ── Detectar mensaje del agente — SIN owner:false (ese campo es true en mensajes salientes del agente, false en entrantes del cliente) ──
    const esMensajeDeAgente =
-     body.owner === false ||
      body.eventType === "agent_message" ||
      body.eventType === "template_message" ||
      (body.eventType === "message" && body.senderType === "agent") ||
@@ -406,7 +404,7 @@ app.post("/webhook", async function(req, res) {
        } else {
          enHandoff[numero] = true;
          iniciadasPorAgente.add(numero);
-         console.log("[HANDOFF] Mensaje del club detectado (owner:false o agente), Raccoon silent: " + numero);
+         console.log("[HANDOFF] Mensaje de agente detectado, Raccoon silent: " + numero);
          await asignarAgente(numero);
        }
      }
