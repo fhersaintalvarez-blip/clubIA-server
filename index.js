@@ -286,7 +286,6 @@ function botNoSabe(respuesta) {
   return respuesta.toLowerCase().includes("en breve te confirman");
 }
 
-// ── Consultar Wati si la conversacion tiene agente asignado ──
 async function tieneAgenteAsignado(waId) {
   try {
     const url = WATI_ENDPOINT + "/api/v1/getConversation/" + waId;
@@ -300,10 +299,8 @@ async function tieneAgenteAsignado(waId) {
     const data = await res.json();
     console.log("[CHECK AGENTE] Conversacion " + waId + ":", JSON.stringify(data).substring(0, 200));
 
-    // Wati devuelve assignedAgent o operatorEmail si hay alguien asignado
     if (data && (data.assignedAgent || data.operatorEmail || data.assignedTo)) {
       const agente = data.assignedAgent || data.operatorEmail || data.assignedTo;
-      // Solo bloquear si es uno de nuestros agentes, no si esta sin asignar
       if (agente && agente !== "" && agente !== null) {
         console.log("[CHECK AGENTE] Agente encontrado: " + agente);
         return true;
@@ -312,7 +309,7 @@ async function tieneAgenteAsignado(waId) {
     return false;
   } catch (err) {
     console.log("[CHECK AGENTE] Error consultando conversacion: " + err.message);
-    return false; // Si falla la consulta, dejar pasar a Raccoon
+    return false;
   }
 }
 
@@ -381,9 +378,6 @@ app.post("/webhook", async function(req, res) {
 
     const numero = body.waId;
 
-    // ─────────────────────────────────────────────────────────────────
-    // BLOQUE 1: Mensaje de AGENTE — cualquier variante que mande Wati
-    // ─────────────────────────────────────────────────────────────────
     const esMensajeDeAgente =
       body.eventType === "agent_message" ||
       body.eventType === "template_message" ||
@@ -409,9 +403,6 @@ app.post("/webhook", async function(req, res) {
       return;
     }
 
-    // ─────────────────────────────────────────────────────────────────
-    // BLOQUE 2: Mensaje de CLIENTE
-    // ─────────────────────────────────────────────────────────────────
     if (body.eventType !== "message") { return; }
 
     const from = body.waId;
@@ -420,37 +411,30 @@ app.post("/webhook", async function(req, res) {
 
     console.log("Mensaje cliente de " + from + ": " + text);
 
-    // Chequeo 1: handoff en memoria
     if (enHandoff[from] || iniciadasPorAgente.has(from)) {
       console.log("[HANDOFF] En memoria, Raccoon silent: " + from);
       return;
     }
 
-    // Chequeo 2: consultar Wati directamente si hay agente asignado
-    // Esto cubre el caso donde el servidor se reinicio y perdio la memoria
     const hayAgente = await tieneAgenteAsignado(from);
     if (hayAgente) {
-      enHandoff[from] = true; // guardar en memoria para proximas veces
+      enHandoff[from] = true;
       console.log("[HANDOFF] Agente detectado via API, Raccoon silent: " + from);
       return;
     }
 
-    // Delay de 2s — ventana para que agente tome control
     await new Promise(resolve => setTimeout(resolve, 2000));
 
-    // Doble chequeo post-delay
     if (enHandoff[from] || iniciadasPorAgente.has(from)) {
       console.log("Agente tomo el caso durante delay, Raccoon no interviene");
       return;
     }
 
-    // Confirmaciones pasivas → Raccoon no responde
     if (esConfirmacionPasiva(text)) {
       console.log("Confirmacion pasiva, Raccoon no responde: " + text);
       return;
     }
 
-    // Cliente pide humano
     if (quiereHumano(text)) {
       console.log("Cliente pide humano");
       enHandoff[from] = true;
@@ -463,7 +447,6 @@ app.post("/webhook", async function(req, res) {
       return;
     }
 
-    // Cliente quiere inscribirse/comprar
     if (quiereInscribirse(text)) {
       console.log("Cliente quiere inscribirse, activando handoff");
       enHandoff[from] = true;
@@ -476,7 +459,6 @@ app.post("/webhook", async function(req, res) {
       return;
     }
 
-    // ── Conversacion normal con IA ──
     if (!conversaciones[from]) { conversaciones[from] = []; }
     conversaciones[from].push({ role: "user", content: text });
     if (conversaciones[from].length > 10) {
@@ -497,7 +479,7 @@ app.post("/webhook", async function(req, res) {
         "anthropic-version": "2023-06-01"
       },
       body: JSON.stringify({
-        model: "claude-opus-4-8",
+        model: "claude-haiku-4-5-20251001",
         max_tokens: 300,
         system: systemConFecha,
         messages: conversaciones[from]
