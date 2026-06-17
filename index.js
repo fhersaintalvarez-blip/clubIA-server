@@ -215,6 +215,7 @@ CANCELACIONES Y CAMBIOS DE RESERVA:
 CAPTURA DE LEADS — MUY IMPORTANTE:
 - Cuando alguien pregunte por Curso de Verano, Academia Kids, Baby Padel, clases o quiera inscribirse a algo, SIEMPRE pregunta al final: "¿Me compartes tu nombre y un numero de contacto para que el equipo te de seguimiento?"
 - Si ya te dieron nombre y numero, confirma: "Perfecto, en breve te contactan 👍"
+- NOMBRES: Si en el historial de la conversacion el cliente ya menciono su nombre, o si el cliente responde a una confirmacion de reserva que ya incluia su nombre (ejemplo: "Buen dia Yucef, le confirmamos su reserva..."), NO vuelvas a pedir el nombre. Ya lo tienes. Usa el nombre directamente en tu respuesta.
 
 DETECCION DE INTENCION DE COMPRA:
 - Si el cliente dice que ya quiere inscribirse, ya se decidio, quiere reservar o contratar algo, responde: "¡Excelente! 🙌 Ahora mismo te conecto con el equipo para cerrar tu inscripcion." Eso activa handoff.
@@ -398,6 +399,8 @@ app.post("/webhook", async function(req, res) {
           enHandoff[numero] = true;
           iniciadasPorAgente.add(numero);
           console.log("[HANDOFF] Agente activo, Raccoon silent: " + numero);
+          // Asignar en Wati para que persista aunque el servidor se reinicie
+          await asignarAgente(numero);
         }
       }
       return;
