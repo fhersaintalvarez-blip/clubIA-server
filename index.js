@@ -287,6 +287,7 @@ function botNoSabe(respuesta) {
  return respuesta.toLowerCase().includes("en breve te confirman");
 }
 
+// ── CHECK AGENTE + DETECCIÓN DE PLANTILLA SALIENTE ──
 async function tieneAgenteAsignado(waId) {
  try {
    const url = WATI_ENDPOINT + "/api/v1/getConversation/" + waId;
@@ -303,8 +304,9 @@ async function tieneAgenteAsignado(waId) {
      return false;
    }
    const data = JSON.parse(text);
-   console.log("[CHECK AGENTE] Conversacion " + waId + ":", JSON.stringify(data).substring(0, 200));
+   console.log("[CHECK AGENTE] Conversacion " + waId + ":", JSON.stringify(data).substring(0, 300));
 
+   // Check 1: agente asignado explícitamente
    if (data && (data.assignedAgent || data.operatorEmail || data.assignedTo)) {
      const agente = data.assignedAgent || data.operatorEmail || data.assignedTo;
      if (agente && agente !== "" && agente !== null) {
@@ -312,6 +314,32 @@ async function tieneAgenteAsignado(waId) {
        return true;
      }
    }
+
+   // Check 2: conversación iniciada por el negocio (plantilla saliente)
+   // Wati incluye los mensajes dentro del objeto conversación
+   if (data && data.messages && Array.isArray(data.messages)) {
+     const hayMensajeSaliente = data.messages.some(m => m.owner === true);
+     if (hayMensajeSaliente) {
+       console.log("[CHECK AGENTE] Conversacion iniciada por negocio (plantilla), bloqueando Raccoon: " + waId);
+       return true;
+     }
+   }
+
+   // Check 3: el objeto raíz tiene owner true (algunos endpoints de Wati lo devuelven así)
+   if (data && data.owner === true) {
+     console.log("[CHECK AGENTE] Owner true en conversacion, bloqueando: " + waId);
+     return true;
+   }
+
+   // Check 4: buscar en estructura alternativa messages.items
+   if (data && data.messages && data.messages.items && Array.isArray(data.messages.items)) {
+     const hayMensajeSaliente = data.messages.items.some(m => m.owner === true);
+     if (hayMensajeSaliente) {
+       console.log("[CHECK AGENTE] Conversacion iniciada por negocio (items), bloqueando Raccoon: " + waId);
+       return true;
+     }
+   }
+
    return false;
  } catch (err) {
    console.log("[CHECK AGENTE] Error consultando conversacion: " + err.message);
@@ -384,14 +412,15 @@ app.post("/webhook", async function(req, res) {
 
    const numero = body.waId;
 
-   // ── Detectar mensaje del agente — SIN owner:false (ese campo es true en mensajes salientes del agente, false en entrantes del cliente) ──
+   // ── Detectar mensaje del agente o plantilla saliente ──
    const esMensajeDeAgente =
      body.eventType === "agent_message" ||
      body.eventType === "template_message" ||
      (body.eventType === "message" && body.senderType === "agent") ||
      (body.senderType && body.senderType !== "customer") ||
      (body.senderEmail && EMAILS_AGENTES.has(body.senderEmail)) ||
-     (body.operatorEmail && EMAILS_AGENTES.has(body.operatorEmail));
+     (body.operatorEmail && EMAILS_AGENTES.has(body.operatorEmail)) ||
+     (body.eventType === "message" && body.owner === true); // ← plantilla saliente
 
    if (esMensajeDeAgente) {
      if (numero) {
@@ -404,8 +433,11 @@ app.post("/webhook", async function(req, res) {
        } else {
          enHandoff[numero] = true;
          iniciadasPorAgente.add(numero);
-         console.log("[HANDOFF] Mensaje de agente detectado, Raccoon silent: " + numero);
-         await asignarAgente(numero);
+         console.log("[HANDOFF] Mensaje de agente/plantilla detectado, Raccoon silent: " + numero);
+         // Solo asignar si es mensaje de agente real, no plantilla automática
+         if (body.eventType !== "template_message" && body.owner !== true) {
+           await asignarAgente(numero);
+         }
        }
      }
      return;
@@ -427,7 +459,7 @@ app.post("/webhook", async function(req, res) {
    const hayAgente = await tieneAgenteAsignado(from);
    if (hayAgente) {
      enHandoff[from] = true;
-     console.log("[HANDOFF] Agente detectado via API, Raccoon silent: " + from);
+     console.log("[HANDOFF] Agente o plantilla detectada via API, Raccoon silent: " + from);
      return;
    }
 
