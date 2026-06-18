@@ -14,6 +14,7 @@ const EMAILS_AGENTES = new Set([
  "Cami.lajeme@gmail.com",
  "fhersaintalvarez@gmail.com"
 ]);
+const NUMERO_ATENCION = "529992592708"; // ProPadel Atención — Camila y Leslie
 let turnoAgente = 0;
 
 const SYSTEM_PROMPT = `Eres Raccoon, el asistente virtual de ProPadel Merida, el mejor club de padel de Merida, Yucatan. Respondes mensajes de WhatsApp de clientes de forma amable, corta y profesional. Usa maximo 2 emojis por mensaje. El tono es relajado y amigable, como el ambiente del club. NUNCA te presentes ni digas tu nombre en las respuestas.
@@ -316,7 +317,6 @@ async function tieneAgenteAsignado(waId) {
    }
 
    // Check 2: conversación iniciada por el negocio (plantilla saliente)
-   // Wati incluye los mensajes dentro del objeto conversación
    if (data && data.messages && Array.isArray(data.messages)) {
      const hayMensajeSaliente = data.messages.some(m => m.owner === true);
      if (hayMensajeSaliente) {
@@ -325,13 +325,13 @@ async function tieneAgenteAsignado(waId) {
      }
    }
 
-   // Check 3: el objeto raíz tiene owner true (algunos endpoints de Wati lo devuelven así)
+   // Check 3: el objeto raíz tiene owner true
    if (data && data.owner === true) {
      console.log("[CHECK AGENTE] Owner true en conversacion, bloqueando: " + waId);
      return true;
    }
 
-   // Check 4: buscar en estructura alternativa messages.items
+   // Check 4: estructura alternativa messages.items
    if (data && data.messages && data.messages.items && Array.isArray(data.messages.items)) {
      const hayMensajeSaliente = data.messages.items.some(m => m.owner === true);
      if (hayMensajeSaliente) {
@@ -359,6 +359,16 @@ async function enviarMensaje(numero, texto) {
    body: JSON.stringify({})
  });
  return res.json();
+}
+
+async function notificarAtencion(mensajeInterno) {
+ // Manda aviso al número ProPadel Atención (Camila y Leslie)
+ try {
+   await enviarMensaje(NUMERO_ATENCION, mensajeInterno);
+   console.log("[ATENCION] Notificacion enviada a ProPadel Atención: " + mensajeInterno);
+ } catch (err) {
+   console.log("[ATENCION] Error notificando a ProPadel Atención: " + err.message);
+ }
 }
 
 async function asignarAgente(numero) {
@@ -420,7 +430,7 @@ app.post("/webhook", async function(req, res) {
      (body.senderType && body.senderType !== "customer") ||
      (body.senderEmail && EMAILS_AGENTES.has(body.senderEmail)) ||
      (body.operatorEmail && EMAILS_AGENTES.has(body.operatorEmail)) ||
-     (body.eventType === "message" && body.owner === true); // ← plantilla saliente
+     (body.eventType === "message" && body.owner === true);
 
    if (esMensajeDeAgente) {
      if (numero) {
@@ -434,7 +444,6 @@ app.post("/webhook", async function(req, res) {
          enHandoff[numero] = true;
          iniciadasPorAgente.add(numero);
          console.log("[HANDOFF] Mensaje de agente/plantilla detectado, Raccoon silent: " + numero);
-         // Solo asignar si es mensaje de agente real, no plantilla automática
          if (body.eventType !== "template_message" && body.owner !== true) {
            await asignarAgente(numero);
          }
@@ -446,8 +455,31 @@ app.post("/webhook", async function(req, res) {
    if (body.eventType !== "message") { return; }
 
    const from = body.waId;
+   if (!from) { return; }
+
+   // ── DETECCIÓN DE IMAGEN O DOCUMENTO ──
+   const tipoMensaje = body.type || body.messageType;
+   const esImagen = tipoMensaje === "image" || tipoMensaje === "document" || tipoMensaje === "video";
+
+   if (esImagen) {
+     console.log("[IMAGEN] Recibida de: " + from + " tipo: " + tipoMensaje);
+
+     // Si ya está en handoff, solo notificar sin responder al cliente
+     if (enHandoff[from] || iniciadasPorAgente.has(from)) {
+       await notificarAtencion("📎 Archivo recibido de +" + from + " (conversacion en handoff). Revisar en Wati.");
+       return;
+     }
+
+     // Si no hay handoff activo: responder al cliente + notificar + activar handoff
+     enHandoff[from] = true;
+     await enviarMensaje(from, "¡Gracias! 🙌 Ya le paso tu comprobante al equipo para confirmarte.");
+     await asignarAgente(from);
+     await notificarAtencion("🔔 Comprobante recibido de +" + from + ". Favor confirmar pago en Wati.");
+     return;
+   }
+
    const text = body.text;
-   if (!from || !text) { return; }
+   if (!text) { return; }
 
    console.log("Mensaje cliente de " + from + ": " + text);
 
@@ -484,6 +516,7 @@ app.post("/webhook", async function(req, res) {
        : "¡Claro! 🙋 En un momento una de nuestras cajeras te atiende personalmente.";
      await enviarMensaje(from, msgHumano);
      await asignarAgente(from);
+     await notificarAtencion("🙋 Cliente +" + from + " solicita atención humana. Revisar en Wati.");
      return;
    }
 
@@ -496,6 +529,7 @@ app.post("/webhook", async function(req, res) {
        : "¡Excelente! 🙌 Ahora mismo te conecto con el equipo para cerrar tu inscripción.";
      await enviarMensaje(from, msgInscripcion);
      await asignarAgente(from);
+     await notificarAtencion("🙌 Cliente +" + from + " quiere inscribirse. Revisar en Wati.");
      return;
    }
 
@@ -541,6 +575,7 @@ app.post("/webhook", async function(req, res) {
    if (botNoSabe(reply)) {
      console.log("Bot no sabe, notificando agente");
      await notificarAgente(from);
+     await notificarAtencion("❓ Consulta sin respuesta de +" + from + ". Revisar en Wati.");
    }
 
    await enviarMensaje(from, reply);
