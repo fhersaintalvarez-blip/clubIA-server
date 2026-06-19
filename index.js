@@ -227,6 +227,25 @@ const conversaciones = {};
 const enHandoff = {};
 const iniciadasPorAgente = new Set();
 
+// ── VENTANA DE PROTECCIÓN LOCAL POST-EVENTO-DE-AGENTE ──
+// Cuando detectamos cualquier señal de actividad de agente (webhook O fail-closed
+// de la API), guardamos el timestamp aquí. Durante los próximos PROTECCION_MS,
+// Raccoon se queda en silencio aunque enHandoff se haya limpiado por cualquier motivo
+// (reinicio de Railway, /libre mal disparado, etc). Esto cubre el caso real que vimos:
+// el webhook de la plantilla de Camila nunca llegó a Railway, así que necesitamos una
+// segunda red de seguridad que no dependa de que ese webhook exista.
+const ultimaActividadAgente = {};
+const PROTECCION_MS = 5 * 60 * 1000; // 5 minutos
+
+function marcarActividadAgente(numero) {
+ ultimaActividadAgente[numero] = Date.now();
+}
+function dentroDeVentanaProteccion(numero) {
+ const ts = ultimaActividadAgente[numero];
+ if (!ts) { return false; }
+ return (Date.now() - ts) < PROTECCION_MS;
+}
+
 const DIAS = ["domingo", "lunes", "martes", "miercoles", "jueves", "viernes", "sabado"];
 const HORARIOS = {
  0: { inicio: 7, fin: 16 },
@@ -288,27 +307,67 @@ function botNoSabe(respuesta) {
  return respuesta.toLowerCase().includes("en breve te confirman");
 }
 
+function sleep(ms) {
+ return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 // ── CHECK AGENTE + DETECCIÓN DE PLANTILLA SALIENTE ──
-async function tieneAgenteAsignado(waId) {
- try {
-   const url = WATI_ENDPOINT + "/api/v1/getConversation/" + waId;
-   const res = await fetch(url, {
-     method: "GET",
-     headers: {
-       "Authorization": "Bearer " + WATI_API_TOKEN,
-       "Content-Type": "application/json"
-     }
-   });
-   const text = await res.text();
-   if (!text || text.trim() === "") {
-     console.log("[CHECK AGENTE] Respuesta vacia de Wati para: " + waId);
-     return false;
+// CAMBIOS vs version anterior:
+// 1. Si Wati responde vacío/error, reintenta una vez con backoff corto (800ms) antes
+//    de resolver, por si la API de Wati todavía no terminó de escribir la conversación.
+// 2. Si después del retry SIGUE sin poder confirmar el estado real (vacío, error de
+//    red, JSON invalido), ahora regresa TRUE (fail-closed) en vez de FALSE (fail-open).
+//    Mejor que un cliente espere unos segundos de mas a que Raccoon le hable encima
+//    de un agente que ya tomó el caso.
+async function consultarConversacionWati(waId) {
+ const url = WATI_ENDPOINT + "/api/v1/getConversation/" + waId;
+ const res = await fetch(url, {
+   method: "GET",
+   headers: {
+     "Authorization": "Bearer " + WATI_API_TOKEN,
+     "Content-Type": "application/json"
    }
-   const data = JSON.parse(text);
+ });
+ const text = await res.text();
+ if (!text || text.trim() === "") {
+   return null;
+ }
+ try {
+   return JSON.parse(text);
+ } catch (err) {
+   console.log("[CHECK AGENTE] JSON invalido de Wati para " + waId + ": " + err.message);
+   return null;
+ }
+}
+
+async function tieneAgenteAsignado(waId) {
+ // Red de seguridad local: si hubo actividad de agente reciente para este numero
+ // (webhook detectado o fail-closed previo), no perdemos tiempo consultando Wati.
+ if (dentroDeVentanaProteccion(waId)) {
+   console.log("[CHECK AGENTE] Dentro de ventana de proteccion local, bloqueando: " + waId);
+   return true;
+ }
+
+ let data = null;
+ try {
+   data = await consultarConversacionWati(waId);
+
+   if (data === null) {
+     console.log("[CHECK AGENTE] Respuesta vacia/invalida de Wati (intento 1) para: " + waId + " — reintentando en 800ms");
+     await sleep(800);
+     data = await consultarConversacionWati(waId);
+   }
+
+   if (data === null) {
+     console.log("[CHECK AGENTE] Respuesta vacia/invalida de Wati (intento 2) para: " + waId + " — FAIL-CLOSED, bloqueando Raccoon");
+     marcarActividadAgente(waId);
+     return true;
+   }
+
    console.log("[CHECK AGENTE] Conversacion " + waId + ":", JSON.stringify(data).substring(0, 300));
 
    // Check 1: agente asignado explícitamente
-   if (data && (data.assignedAgent || data.operatorEmail || data.assignedTo)) {
+   if (data.assignedAgent || data.operatorEmail || data.assignedTo) {
      const agente = data.assignedAgent || data.operatorEmail || data.assignedTo;
      if (agente && agente !== "" && agente !== null) {
        console.log("[CHECK AGENTE] Agente encontrado: " + agente);
@@ -317,7 +376,7 @@ async function tieneAgenteAsignado(waId) {
    }
 
    // Check 2: conversación iniciada por el negocio (plantilla saliente)
-   if (data && data.messages && Array.isArray(data.messages)) {
+   if (data.messages && Array.isArray(data.messages)) {
      const hayMensajeSaliente = data.messages.some(m => m.owner === true);
      if (hayMensajeSaliente) {
        console.log("[CHECK AGENTE] Conversacion iniciada por negocio (plantilla), bloqueando Raccoon: " + waId);
@@ -326,13 +385,13 @@ async function tieneAgenteAsignado(waId) {
    }
 
    // Check 3: el objeto raíz tiene owner true
-   if (data && data.owner === true) {
+   if (data.owner === true) {
      console.log("[CHECK AGENTE] Owner true en conversacion, bloqueando: " + waId);
      return true;
    }
 
    // Check 4: estructura alternativa messages.items
-   if (data && data.messages && data.messages.items && Array.isArray(data.messages.items)) {
+   if (data.messages && data.messages.items && Array.isArray(data.messages.items)) {
      const hayMensajeSaliente = data.messages.items.some(m => m.owner === true);
      if (hayMensajeSaliente) {
        console.log("[CHECK AGENTE] Conversacion iniciada por negocio (items), bloqueando Raccoon: " + waId);
@@ -342,8 +401,10 @@ async function tieneAgenteAsignado(waId) {
 
    return false;
  } catch (err) {
-   console.log("[CHECK AGENTE] Error consultando conversacion: " + err.message);
-   return false;
+   // Error de red u otro fallo inesperado: tambien fail-closed.
+   console.log("[CHECK AGENTE] Error consultando conversacion: " + err.message + " — FAIL-CLOSED, bloqueando Raccoon");
+   marcarActividadAgente(waId);
+   return true;
  }
 }
 
@@ -438,11 +499,13 @@ app.post("/webhook", async function(req, res) {
          delete enHandoff[numero];
          iniciadasPorAgente.delete(numero);
          delete conversaciones[numero];
+         delete ultimaActividadAgente[numero];
          console.log("Handoff liberado por agente para: " + numero);
          await enviarMensaje(numero, "¡Hola de nuevo! 🦝 ¿En qué más te puedo ayudar?");
        } else {
          enHandoff[numero] = true;
          iniciadasPorAgente.add(numero);
+         marcarActividadAgente(numero);
          console.log("[HANDOFF] Mensaje de agente/plantilla detectado, Raccoon silent: " + numero);
          if (body.eventType !== "template_message" && body.owner !== true) {
            await asignarAgente(numero);
@@ -483,8 +546,9 @@ app.post("/webhook", async function(req, res) {
 
    console.log("Mensaje cliente de " + from + ": " + text);
 
-   if (enHandoff[from] || iniciadasPorAgente.has(from)) {
-     console.log("[HANDOFF] En memoria, Raccoon silent: " + from);
+   if (enHandoff[from] || iniciadasPorAgente.has(from) || dentroDeVentanaProteccion(from)) {
+     console.log("[HANDOFF] En memoria o ventana de proteccion, Raccoon silent: " + from);
+     enHandoff[from] = true;
      return;
    }
 
@@ -495,10 +559,11 @@ app.post("/webhook", async function(req, res) {
      return;
    }
 
-   await new Promise(resolve => setTimeout(resolve, 2000));
+   await sleep(2000);
 
-   if (enHandoff[from] || iniciadasPorAgente.has(from)) {
+   if (enHandoff[from] || iniciadasPorAgente.has(from) || dentroDeVentanaProteccion(from)) {
      console.log("Agente tomo el caso durante delay, Raccoon no interviene");
+     enHandoff[from] = true;
      return;
    }
 
