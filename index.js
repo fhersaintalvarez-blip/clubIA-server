@@ -312,13 +312,21 @@ function sleep(ms) {
 }
 
 // ── CHECK AGENTE + DETECCIÓN DE PLANTILLA SALIENTE ──
-// CAMBIOS vs version anterior:
-// 1. Si Wati responde vacío/error, reintenta una vez con backoff corto (800ms) antes
-//    de resolver, por si la API de Wati todavía no terminó de escribir la conversación.
-// 2. Si después del retry SIGUE sin poder confirmar el estado real (vacío, error de
-//    red, JSON invalido), ahora regresa TRUE (fail-closed) en vez de FALSE (fail-open).
-//    Mejor que un cliente espere unos segundos de mas a que Raccoon le hable encima
-//    de un agente que ya tomó el caso.
+// CAMBIOS vs version anterior (post-incidente Horacio 2026-06-19 14:06):
+// Diagnostico confirmado por logs: cuando un ticket se ACABA de crear (cliente nuevo,
+// primer mensaje), la API getConversation de Wati todavia no tiene la conversacion
+// lista y responde vacio/invalido — NO porque haya un agente, sino por lag de la API.
+// Con 1 solo retry de 800ms esto seguia fallando y el fail-closed dejaba a Raccoon
+// mudo por minutos (mas la ventana de proteccion de 5 min encima).
+// 1. Ahora reintenta hasta 3 veces con backoff progresivo (800ms, 1500ms, 2500ms —
+//    ~4.8s total) para darle a Wati tiempo real de tener la conversacion lista.
+// 2. Si DESPUES de los 3 intentos sigue sin poder confirmar el estado (vacio, error
+//    de red, JSON invalido), ahora es FAIL-OPEN: Raccoon responde igual. El riesgo de
+//    pisar a un agente real es bajo porque enHandoff/iniciadasPorAgente y la ventana
+//    de proteccion ya cubren el caso de agente detectado por webhook. Se notifica a
+//    Atencion para que quede registro del timeout y alguien pueda revisar si hace falta.
+// 3. La ventana de proteccion local (PROTECCION_MS) YA NO se activa por timeout puro de
+//    la API — solo se activa cuando se confirma de verdad un agente o plantilla saliente.
 async function consultarConversacionWati(waId) {
  const url = WATI_ENDPOINT + "/api/v1/getConversation/" + waId;
  const res = await fetch(url, {
@@ -340,9 +348,12 @@ async function consultarConversacionWati(waId) {
  }
 }
 
+const REINTENTOS_WATI_MS = [800, 1500, 2500];
+
 async function tieneAgenteAsignado(waId) {
- // Red de seguridad local: si hubo actividad de agente reciente para este numero
- // (webhook detectado o fail-closed previo), no perdemos tiempo consultando Wati.
+ // Red de seguridad local: si hubo actividad de agente reciente CONFIRMADA para este
+ // numero (webhook detectado o agente real visto en la conversacion), no perdemos
+ // tiempo consultando Wati.
  if (dentroDeVentanaProteccion(waId)) {
    console.log("[CHECK AGENTE] Dentro de ventana de proteccion local, bloqueando: " + waId);
    return true;
@@ -352,16 +363,16 @@ async function tieneAgenteAsignado(waId) {
  try {
    data = await consultarConversacionWati(waId);
 
-   if (data === null) {
-     console.log("[CHECK AGENTE] Respuesta vacia/invalida de Wati (intento 1) para: " + waId + " — reintentando en 800ms");
-     await sleep(800);
+   for (let i = 0; data === null && i < REINTENTOS_WATI_MS.length; i++) {
+     console.log("[CHECK AGENTE] Respuesta vacia/invalida de Wati (intento " + (i + 1) + ") para: " + waId + " — reintentando en " + REINTENTOS_WATI_MS[i] + "ms");
+     await sleep(REINTENTOS_WATI_MS[i]);
      data = await consultarConversacionWati(waId);
    }
 
    if (data === null) {
-     console.log("[CHECK AGENTE] Respuesta vacia/invalida de Wati (intento 2) para: " + waId + " — FAIL-CLOSED, bloqueando Raccoon");
-     marcarActividadAgente(waId);
-     return true;
+     console.log("[CHECK AGENTE] Wati sigue sin responder tras " + (REINTENTOS_WATI_MS.length + 1) + " intentos para: " + waId + " — FAIL-OPEN, Raccoon responde igual");
+     await notificarAtencion("⚠️ Timeout de Wati al revisar conversación de +" + waId + " (varios intentos fallidos). Raccoon respondió de todas formas — revisar si hace falta intervención manual.");
+     return false;
    }
 
    console.log("[CHECK AGENTE] Conversacion " + waId + ":", JSON.stringify(data).substring(0, 300));
@@ -371,6 +382,7 @@ async function tieneAgenteAsignado(waId) {
      const agente = data.assignedAgent || data.operatorEmail || data.assignedTo;
      if (agente && agente !== "" && agente !== null) {
        console.log("[CHECK AGENTE] Agente encontrado: " + agente);
+       marcarActividadAgente(waId);
        return true;
      }
    }
@@ -380,6 +392,7 @@ async function tieneAgenteAsignado(waId) {
      const hayMensajeSaliente = data.messages.some(m => m.owner === true);
      if (hayMensajeSaliente) {
        console.log("[CHECK AGENTE] Conversacion iniciada por negocio (plantilla), bloqueando Raccoon: " + waId);
+       marcarActividadAgente(waId);
        return true;
      }
    }
@@ -387,6 +400,7 @@ async function tieneAgenteAsignado(waId) {
    // Check 3: el objeto raíz tiene owner true
    if (data.owner === true) {
      console.log("[CHECK AGENTE] Owner true en conversacion, bloqueando: " + waId);
+     marcarActividadAgente(waId);
      return true;
    }
 
@@ -395,16 +409,17 @@ async function tieneAgenteAsignado(waId) {
      const hayMensajeSaliente = data.messages.items.some(m => m.owner === true);
      if (hayMensajeSaliente) {
        console.log("[CHECK AGENTE] Conversacion iniciada por negocio (items), bloqueando Raccoon: " + waId);
+       marcarActividadAgente(waId);
        return true;
      }
    }
 
    return false;
  } catch (err) {
-   // Error de red u otro fallo inesperado: tambien fail-closed.
-   console.log("[CHECK AGENTE] Error consultando conversacion: " + err.message + " — FAIL-CLOSED, bloqueando Raccoon");
-   marcarActividadAgente(waId);
-   return true;
+   // Error de red u otro fallo inesperado: tambien fail-OPEN ahora, con notificacion.
+   console.log("[CHECK AGENTE] Error consultando conversacion: " + err.message + " — FAIL-OPEN, Raccoon responde igual");
+   await notificarAtencion("⚠️ Error consultando Wati para +" + waId + ": " + err.message + ". Raccoon respondió de todas formas — revisar si hace falta intervención manual.");
+   return false;
  }
 }
 
