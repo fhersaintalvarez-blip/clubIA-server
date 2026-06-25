@@ -1,9 +1,12 @@
 const express = require("express");
+const puppeteer = require("puppeteer");
 const app = express();
 app.use(express.json());
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const WATI_API_TOKEN = process.env.WATI_API_TOKEN;
 const WATI_ENDPOINT = process.env.WATI_ENDPOINT;
+const PLAYTOMIC_EMAIL = process.env.PLAYTOMIC_EMAIL;
+const PLAYTOMIC_PASSWORD = process.env.PLAYTOMIC_PASSWORD;
 const AGENTES = [
  "guzmanleslie314@gmail.com",
  "Cami.lajeme@gmail.com",
@@ -16,6 +19,10 @@ const EMAILS_AGENTES = new Set([
 ]);
 const NUMERO_ATENCION = "529992592708"; // ProPadel Atención — Camila y Leslie
 let turnoAgente = 0;
+
+// ── PLAYTOMIC CACHE ──
+let cacheDisponibilidad = {};
+const CACHE_TTL = 15 * 60 * 1000; // 15 minutos
 
 const SYSTEM_PROMPT = `Eres Raccoon, el asistente virtual de ProPadel Merida, el mejor club de padel de Merida, Yucatan. Respondes mensajes de WhatsApp de clientes de forma amable, corta y profesional. Usa maximo 2 emojis por mensaje. El tono es relajado y amigable, como el ambiente del club. NUNCA te presentes ni digas tu nombre en las respuestas.
 IDIOMA: Responde siempre en el mismo idioma que usa el cliente. Si escribe en inglés, responde en inglés con el mismo tono amigable.
@@ -224,7 +231,7 @@ CANCELACIONES Y CAMBIOS DE RESERVA:
 CAPTURA DE LEADS — MUY IMPORTANTE:
 - Cuando alguien pregunte por Curso de Verano, Academia Kids, Baby Padel, clases o quiera inscribirse a algo, SIEMPRE pregunta al final: "¿Me compartes tu nombre y un numero de contacto para que el equipo te de seguimiento?"
 - Si ya te dieron nombre y numero, confirma: "Perfecto, en breve te contactan 👍"
-- NOMBRES: Si en el historial de la conversacion el cliente ya menciono su nombre, o si el cliente responde a una confirmacion de reserva que ya incluia su nombre (ejemplo: "Buen dia Yucef, le confirmamos su reserva..."), NO vuelvas a pedir el nombre. Ya lo tienes. Usa el nombre directamente en tu respuesta.
+- NOMBRES: Si en el historial de la conversacion el cliente ya menciono su nombre, o si el cliente responde a una confirmacion de reserva que ya incluia su nombre (ejemplo: "Buen dia Yucef, le confirmamos su reserva..."), NO vueltas a pedir el nombre. Ya lo tienes. Usa el nombre directamente en tu respuesta.
 
 DETECCION DE INTENCION DE COMPRA:
 - Si el cliente dice que ya quiere inscribirse, ya se decidio, quiere reservar o contratar algo, responde: "¡Excelente! 🙌 Ahora mismo te conecto con el equipo para cerrar tu inscripcion." Eso activa handoff.
@@ -236,12 +243,6 @@ const enHandoff = {};
 const iniciadasPorAgente = new Set();
 
 // ── VENTANA DE PROTECCIÓN LOCAL POST-EVENTO-DE-AGENTE ──
-// Cuando detectamos cualquier señal de actividad de agente (webhook O fail-closed
-// de la API), guardamos el timestamp aquí. Durante los próximos PROTECCION_MS,
-// Raccoon se queda en silencio aunque enHandoff se haya limpiado por cualquier motivo
-// (reinicio de Railway, /libre mal disparado, etc). Esto cubre el caso real que vimos:
-// el webhook de la plantilla de Camila nunca llegó a Railway, así que necesitamos una
-// segunda red de seguridad que no dependa de que ese webhook exista.
 const ultimaActividadAgente = {};
 const PROTECCION_MS = 5 * 60 * 1000; // 5 minutos
 
@@ -311,6 +312,16 @@ function quiereInscribirse(texto) {
  const t = texto.toLowerCase();
  return frases.some(f => t.includes(f));
 }
+function quiereConsultarDisponibilidad(texto) {
+ const frases = [
+   "hay disponibilidad", "está disponible", "esta disponible",
+   "tienes espacio", "tienes cancha", "hay cancha", "hay espacio",
+   "qué horas", "que horas", "horarios", "cuando puedo", "cuándo puedo",
+   "a qué hora", "a que hora", "para mañana", "para el", "para la"
+ ];
+ const t = texto.toLowerCase();
+ return frases.some(f => t.includes(f));
+}
 function botNoSabe(respuesta) {
  return respuesta.toLowerCase().includes("en breve te confirman");
 }
@@ -319,22 +330,77 @@ function sleep(ms) {
  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+// ── PUPPETEER: CONSULTAR DISPONIBILIDAD PLAYTOMIC ──
+async function consultarDisponibilidadPlaytomic(fecha) {
+ try {
+   // Chequear caché
+   if (cacheDisponibilidad[fecha] && (Date.now() - cacheDisponibilidad[fecha].timestamp) < CACHE_TTL) {
+     console.log("[PLAYTOMIC] Cache hit para fecha: " + fecha);
+     return cacheDisponibilidad[fecha].data;
+   }
+
+   console.log("[PLAYTOMIC] Scrapeando disponibilidad para: " + fecha);
+
+   // Lanzar Puppeteer en Railway
+   const browser = await puppeteer.launch({
+     headless: true,
+     args: [
+       "--no-sandbox",
+       "--disable-setuid-sandbox",
+       "--disable-dev-shm-usage"
+     ]
+   });
+
+   const page = await browser.newPage();
+   await page.goto("https://manager.playtomic.io/login", { waitUntil: "networkidle2", timeout: 30000 });
+
+   // Login
+   await page.type('input[type="email"]', PLAYTOMIC_EMAIL, { delay: 50 });
+   await page.type('input[type="password"]', PLAYTOMIC_PASSWORD, { delay: 50 });
+   await page.click('button[type="submit"]');
+   await page.waitForNavigation({ waitUntil: "networkidle2", timeout: 30000 });
+
+   // Navegar a dashboard/schedule
+   await page.goto("https://manager.playtomic.io/dashboard/schedule?tid=8bebc629-057d-46b7-a617-bd37c4a7e702", 
+     { waitUntil: "networkidle2", timeout: 30000 });
+
+   // Esperar a que cargue el calendario
+   await page.waitForSelector('[data-testid="schedule-table"], .schedule-grid, [class*="schedule"]', { timeout: 10000 }).catch(() => {});
+
+   // Extraer disponibilidad (esto depende de la estructura exacta de Playtomic)
+   // Asumimos que hay un selector similar a este — AJUSTA SEGÚN TU INTERFAZ
+   const disponibilidad = await page.evaluate(() => {
+     const data = {};
+     // Buscar todos los slots de cancha
+     const slots = document.querySelectorAll('[data-slot], [class*="available"], [class*="slot"]');
+     slots.forEach(slot => {
+       const horario = slot.getAttribute("data-time") || slot.textContent.trim();
+       const cancha = slot.getAttribute("data-court") || slot.textContent.split(" ")[0];
+       const estado = slot.className.includes("available") ? "disponible" : "ocupado";
+       if (!data[cancha]) data[cancha] = [];
+       data[cancha].push({ horario, estado });
+     });
+     return data;
+   });
+
+   await browser.close();
+
+   // Guardar en caché
+   cacheDisponibilidad[fecha] = {
+     timestamp: Date.now(),
+     data: disponibilidad
+   };
+
+   console.log("[PLAYTOMIC] Datos extraidos: " + JSON.stringify(disponibilidad).substring(0, 200));
+   return disponibilidad;
+
+ } catch (err) {
+   console.error("[PLAYTOMIC] Error scrapeando: " + err.message);
+   return { error: "No pude consultar Playtomic en este momento" };
+ }
+}
+
 // ── CHECK AGENTE + DETECCIÓN DE PLANTILLA SALIENTE ──
-// CAMBIOS vs version anterior (post-incidente Horacio 2026-06-19 14:06):
-// Diagnostico confirmado por logs: cuando un ticket se ACABA de crear (cliente nuevo,
-// primer mensaje), la API getConversation de Wati todavia no tiene la conversacion
-// lista y responde vacio/invalido — NO porque haya un agente, sino por lag de la API.
-// Con 1 solo retry de 800ms esto seguia fallando y el fail-closed dejaba a Raccoon
-// mudo por minutos (mas la ventana de proteccion de 5 min encima).
-// 1. Ahora reintenta hasta 3 veces con backoff progresivo (800ms, 1500ms, 2500ms —
-//    ~4.8s total) para darle a Wati tiempo real de tener la conversacion lista.
-// 2. Si DESPUES de los 3 intentos sigue sin poder confirmar el estado (vacio, error
-//    de red, JSON invalido), ahora es FAIL-OPEN: Raccoon responde igual. El riesgo de
-//    pisar a un agente real es bajo porque enHandoff/iniciadasPorAgente y la ventana
-//    de proteccion ya cubren el caso de agente detectado por webhook. Se notifica a
-//    Atencion para que quede registro del timeout y alguien pueda revisar si hace falta.
-// 3. La ventana de proteccion local (PROTECCION_MS) YA NO se activa por timeout puro de
-//    la API — solo se activa cuando se confirma de verdad un agente o plantilla saliente.
 async function consultarConversacionWati(waId) {
  const url = WATI_ENDPOINT + "/api/v1/getConversation/" + waId;
  const res = await fetch(url, {
@@ -359,9 +425,6 @@ async function consultarConversacionWati(waId) {
 const REINTENTOS_WATI_MS = [800, 1500, 2500];
 
 async function tieneAgenteAsignado(waId) {
- // Red de seguridad local: si hubo actividad de agente reciente CONFIRMADA para este
- // numero (webhook detectado o agente real visto en la conversacion), no perdemos
- // tiempo consultando Wati.
  if (dentroDeVentanaProteccion(waId)) {
    console.log("[CHECK AGENTE] Dentro de ventana de proteccion local, bloqueando: " + waId);
    return true;
@@ -385,7 +448,6 @@ async function tieneAgenteAsignado(waId) {
 
    console.log("[CHECK AGENTE] Conversacion " + waId + ":", JSON.stringify(data).substring(0, 300));
 
-   // Check 1: agente asignado explícitamente
    if (data.assignedAgent || data.operatorEmail || data.assignedTo) {
      const agente = data.assignedAgent || data.operatorEmail || data.assignedTo;
      if (agente && agente !== "" && agente !== null) {
@@ -395,7 +457,6 @@ async function tieneAgenteAsignado(waId) {
      }
    }
 
-   // Check 2: conversación iniciada por el negocio (plantilla saliente)
    if (data.messages && Array.isArray(data.messages)) {
      const hayMensajeSaliente = data.messages.some(m => m.owner === true);
      if (hayMensajeSaliente) {
@@ -405,14 +466,12 @@ async function tieneAgenteAsignado(waId) {
      }
    }
 
-   // Check 3: el objeto raíz tiene owner true
    if (data.owner === true) {
      console.log("[CHECK AGENTE] Owner true en conversacion, bloqueando: " + waId);
      marcarActividadAgente(waId);
      return true;
    }
 
-   // Check 4: estructura alternativa messages.items
    if (data.messages && data.messages.items && Array.isArray(data.messages.items)) {
      const hayMensajeSaliente = data.messages.items.some(m => m.owner === true);
      if (hayMensajeSaliente) {
@@ -424,7 +483,6 @@ async function tieneAgenteAsignado(waId) {
 
    return false;
  } catch (err) {
-   // Error de red u otro fallo inesperado: tambien fail-OPEN ahora, con notificacion.
    console.log("[CHECK AGENTE] Error consultando conversacion: " + err.message + " — FAIL-OPEN, Raccoon responde igual");
    await notificarAtencion("⚠️ Error consultando Wati para +" + waId + ": " + err.message + ". Raccoon respondió de todas formas — revisar si hace falta intervención manual.");
    return false;
@@ -446,7 +504,6 @@ async function enviarMensaje(numero, texto) {
 }
 
 async function notificarAtencion(mensajeInterno) {
- // Manda aviso al número ProPadel Atención (Camila y Leslie)
  try {
    await enviarMensaje(NUMERO_ATENCION, mensajeInterno);
    console.log("[ATENCION] Notificacion enviada a ProPadel Atención: " + mensajeInterno);
@@ -550,13 +607,11 @@ app.post("/webhook", async function(req, res) {
    if (esImagen) {
      console.log("[IMAGEN] Recibida de: " + from + " tipo: " + tipoMensaje);
 
-     // Si ya está en handoff, solo notificar sin responder al cliente
      if (enHandoff[from] || iniciadasPorAgente.has(from)) {
        await notificarAtencion("📎 Archivo recibido de +" + from + " (conversacion en handoff). Revisar en Wati.");
        return;
      }
 
-     // Si no hay handoff activo: responder al cliente + notificar + activar handoff
      enHandoff[from] = true;
      await enviarMensaje(from, "¡Gracias! 🙌 Ya le paso tu comprobante al equipo para confirmarte.");
      await asignarAgente(from);
@@ -621,6 +676,42 @@ app.post("/webhook", async function(req, res) {
      return;
    }
 
+   // ── CONSULTAR DISPONIBILIDAD PLAYTOMIC ──
+   if (quiereConsultarDisponibilidad(text)) {
+     console.log("Cliente pregunta por disponibilidad, consultando Playtomic");
+     const disponibilidad = await consultarDisponibilidadPlaytomic("hoy");
+
+     if (disponibilidad.error) {
+       await enviarMensaje(from, "en breve te confirman");
+       await notificarAgente(from);
+       return;
+     }
+
+     // Formatear respuesta con disponibilidad
+     let respuestaDisponibilidad = "Canchas disponibles hoy:\n\n";
+     let hayDisponibles = false;
+     for (const cancha in disponibilidad) {
+       const slots = disponibilidad[cancha];
+       const disponibles = slots.filter(s => s.estado === "disponible");
+       if (disponibles.length > 0) {
+         hayDisponibles = true;
+         respuestaDisponibilidad += "🏸 Cancha " + cancha + ":\n";
+         disponibles.forEach(slot => {
+           respuestaDisponibilidad += "  • " + slot.horario + "\n";
+         });
+       }
+     }
+
+     if (!hayDisponibles) {
+       respuestaDisponibilidad = "Por el momento no hay canchas disponibles en el horario que buscas. ¿Quieres que te ayude con otra hora? 👍";
+     } else {
+       respuestaDisponibilidad += "\n¿Cuál te interesa? 🎾";
+     }
+
+     await enviarMensaje(from, respuestaDisponibilidad);
+     return;
+   }
+
    if (!conversaciones[from]) { conversaciones[from] = []; }
    conversaciones[from].push({ role: "user", content: text });
    if (conversaciones[from].length > 10) {
@@ -674,7 +765,7 @@ app.post("/webhook", async function(req, res) {
 });
 
 app.get("/", function(req, res) {
- res.send("ClubIA 🦝 activo");
+ res.send("ClubIA 🦝 activo + Playtomic scraping");
 });
 
 const PORT = process.env.PORT || 3000;
