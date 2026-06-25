@@ -365,47 +365,39 @@ async function consultarDisponibilidadPlaytomic() {
    const disponibilidad = await page.evaluate(() => {
      const resultado = {};
      
-     // Obtener todas las canchas (filas con nombre de cancha)
-     const canchas = document.querySelectorAll('[class*="court"], [data-court], h3, h4');
-     
-     // Alternativa: buscar por texto de cancha conocido
-     const textoCanchas = Array.from(document.querySelectorAll('*')).filter(el => 
-       el.textContent.includes('Cancha 1') || 
-       el.textContent.includes('Cancha 2') ||
-       el.textContent.includes('Estadio')
-     );
-
-     // Extraer grid de horarios
-     const horarios = [];
-     const celdas = document.querySelectorAll('[class*="slot"], [class*="hour"], td, div[class*="time"]');
-     
-     // Si hay elementos con clase "available" o similar
-     const slots = document.querySelectorAll('[class*="available"], [class*="occupied"], [class*="slot"]');
-     
-     // Extraer texto visible de disponibilidad
+     // Extraer todo el texto de la página
      const contenido = document.body.innerText;
-     
-     // Buscar patrón: "Cancha X" seguido de horarios disponibles
      const lineas = contenido.split('\n').map(l => l.trim()).filter(l => l.length > 0);
      
+     // Patrones para identificar canchas y horarios
      let canchActual = null;
+     let horariosCancha = [];
+     
      for (let i = 0; i < lineas.length; i++) {
        const linea = lineas[i];
        
+       // Detectar nombre de cancha
        if (linea.includes('Cancha') || linea.includes('Estadio')) {
+         // Guardar cancha anterior si existe
+         if (canchActual && horariosCancha.length > 0) {
+           resultado[canchActual] = horariosCancha;
+         }
+         
          canchActual = linea;
-         resultado[canchActual] = [];
-       } else if (canchActual && 
-                  (linea.includes('AM') || linea.includes('PM') || 
-                   /^\d{1,2}:\d{2}/.test(linea)) &&
-                  !linea.includes('available') &&
-                  !linea.includes('not available')) {
-         // Es un horario, agregar a la cancha actual
-         if (!resultado[canchActual]) resultado[canchActual] = [];
-         resultado[canchActual].push(linea);
-       } else if (canchActual && (linea === 'available' || linea === 'not available')) {
-         // Ignorar etiquetas
+         horariosCancha = [];
+       } 
+       // Detectar horario con formato HH:MM - HH:MM
+       else if (canchActual && /\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2}/.test(linea)) {
+         // Ignorar etiquetas de disponibilidad
+         if (!linea.includes('available') && !linea.includes('occupied')) {
+           horariosCancha.push(linea);
+         }
        }
+     }
+     
+     // Guardar última cancha si existe
+     if (canchActual && horariosCancha.length > 0) {
+       resultado[canchActual] = horariosCancha;
      }
      
      return resultado;
@@ -730,20 +722,25 @@ app.post("/webhook", async function(req, res) {
        const horarios = disponibilidad[cancha];
        if (horarios && horarios.length > 0) {
          totalDisponible += horarios.length;
-         respuesta += "🏸 " + cancha + ":\n";
-         horarios.slice(0, 5).forEach(horario => {
+         respuesta += "🏸 " + cancha + "\n";
+         
+         // Mostrar máximo 8 horarios, no más
+         const horariosLimitados = horarios.slice(0, 8);
+         horariosLimitados.forEach(horario => {
            respuesta += "  • " + horario + "\n";
          });
-         if (horarios.length > 5) {
-           respuesta += "  ... y más\n";
+         
+         if (horarios.length > 8) {
+           respuesta += "  ... y " + (horarios.length - 8) + " más\n";
          }
+         respuesta += "\n";
        }
      }
 
      if (totalDisponible === 0) {
        respuesta = "Por ahora no hay canchas disponibles. ¿Prefieres que el equipo te ayude a encontrar un horario? 👍";
      } else {
-       respuesta += "\n¿Cuál te interesa? Escribe directamente o reserva en Playtomic 🎾";
+       respuesta += "¿Cuál te interesa? Escribe directamente o reserva en Playtomic 🎾";
      }
 
      await enviarMensaje(from, respuesta);
