@@ -359,7 +359,7 @@ async function consultarDisponibilidadPlaytomic() {
    });
 
    // Esperar a que cargue la disponibilidad
-   await page.waitForTimeout(3000); // Dar tiempo a que cargue el selector
+   await sleep(3000); // Dar tiempo a que cargue el selector
 
    // Extraer disponibilidad de la página pública
    const disponibilidad = await page.evaluate(() => {
