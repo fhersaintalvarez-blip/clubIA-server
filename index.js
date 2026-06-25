@@ -438,16 +438,13 @@ async function consultarDisponibilidadPlaytomic() {
 
        // PASO 3: Extraer disponibilidad
        console.log("[PLAYTOMIC] Extrayendo disponibilidad...");
-       const disponibilidad = await page.evaluate(() => {
+       const extraccion = await page.evaluate(() => {
          const resultado = {};
          const contenido = document.body.innerText;
          const lineas = contenido.split('\n').map(l => l.trim()).filter(l => l.length > 0);
          
-         // LOGGING: Ver primeras 50 líneas para debugging
-         console.log("[DEBUG] Primeras 50 líneas del contenido:");
-         for (let i = 0; i < Math.min(50, lineas.length); i++) {
-           console.log("[DEBUG] L" + i + ": " + lineas[i]);
-         }
+         // Devolver también las primeras líneas para debugging
+         const primerasLineas = lineas.slice(0, 100);
          
          let canchActual = null;
          
@@ -458,7 +455,6 @@ async function consultarDisponibilidadPlaytomic() {
            if ((linea.includes('Cancha') || linea.includes('Estadio')) && !linea.includes('No slots') && !linea.includes('No available')) {
              canchActual = linea;
              resultado[canchActual] = [];
-             console.log("[DEBUG] Cancha encontrada: " + canchActual);
            } 
            // Detectar horarios (múltiples formatos)
            else if (canchActual && (
@@ -468,14 +464,21 @@ async function consultarDisponibilidadPlaytomic() {
            )) {
              if (!resultado[canchActual].includes(linea)) {
                resultado[canchActual].push(linea);
-               console.log("[DEBUG] Horario agregado: " + linea);
              }
            }
          }
          
-         console.log("[DEBUG] Resultado final: " + JSON.stringify(resultado));
-         return resultado;
+         return { disponibilidad: resultado, primerasLineas: primerasLineas };
        });
+
+       // LOGGING EN NODE (ahora sí aparecerá en Railway logs)
+       console.log("[PLAYTOMIC] Primeras 100 líneas de la página:");
+       for (let i = 0; i < Math.min(100, extraccion.primerasLineas.length); i++) {
+         console.log("[DEBUG L" + i + "] " + extraccion.primerasLineas[i]);
+       }
+       
+       const disponibilidad = extraccion.disponibilidad;
+       console.log("[PLAYTOMIC] Resultado extraído: " + JSON.stringify(disponibilidad));
 
        console.log("[PLAYTOMIC] Cerrando browser...");
        await browser.close();
