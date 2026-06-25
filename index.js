@@ -450,53 +450,60 @@ async function consultarDisponibilidadPlaytomic() {
          console.log("[PLAYTOMIC] ⚠ Timeout esperando schedule, continuando de todas formas: " + err.message);
        }
 
-       // PASO 3: Extraer disponibilidad
+       // PASO 3: Extraer disponibilidad con mejor estructura
        console.log("[PLAYTOMIC] Extrayendo disponibilidad...");
        const extraccion = await page.evaluate(() => {
-         const resultado = {};
          const contenido = document.body.innerText;
          const lineas = contenido.split('\n').map(l => l.trim()).filter(l => l.length > 0);
          
-         // Devolver también las primeras líneas para debugging
-         const primerasLineas = lineas.slice(0, 100);
+         const primerasLineas = lineas.slice(0, 150);
          
-         let canchActual = null;
+         // Parsear: buscar línea con múltiples "Cancha X" y luego los horarios
+         let canchasGlobales = [];
+         let horarios = [];
+         let enSeccionHorarios = false;
          
          for (let i = 0; i < lineas.length; i++) {
            const linea = lineas[i];
            
-           // Detectar cancha (más flexible)
-           if ((linea.includes('Cancha') || linea.includes('Estadio')) && !linea.includes('No slots') && !linea.includes('No available')) {
-             canchActual = linea;
-             resultado[canchActual] = [];
-           } 
-           // Detectar horarios (múltiples formatos)
-           else if (canchActual && (
-             /^\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2}/.test(linea) ||  // 6:00 - 7:00 o 6:00 - 7:00pm
-             /^\d{1,2}:\d{2}\s*(am|pm|AM|PM)/.test(linea) ||       // 6:00pm o 6:00 PM
-             /^\d{2}:\d{2}\s*-\s*\d{2}:\d{2}/.test(linea)           // 18:00 - 19:00 (24h)
-           )) {
-             if (!resultado[canchActual].includes(linea)) {
-               resultado[canchActual].push(linea);
+           // Detectar línea de canchas (contiene múltiples "Cancha")
+           if ((linea.match(/Cancha/g) || []).length >= 2) {
+             // Extraer nombres de canchas: "Cancha 1" "Cancha 2 Peñafiel" etc
+             const matches = linea.match(/Cancha\s+\d+[^C]*/g);
+             if (matches) {
+               canchasGlobales = matches.map(m => m.trim());
              }
+             enSeccionHorarios = true;
+           }
+           // Detectar horarios (después de encontrar canchas)
+           else if (enSeccionHorarios && /^\d{1,2}:\d{2}\s*(AM|PM|am|pm)/.test(linea)) {
+             horarios.push(linea);
+           }
+           // Detectar fin de horarios (si aparece algo que claramente no es horario)
+           else if (enSeccionHorarios && horarios.length > 0 && 
+                    !(/^\d{1,2}:\d{2}/.test(linea)) && 
+                    linea.length > 20 && 
+                    !linea.includes("...")) {
+             break;
            }
          }
          
-         return { disponibilidad: resultado, primerasLineas: primerasLineas };
+         return { 
+           canchas: canchasGlobales, 
+           horarios: horarios, 
+           primerasLineas: primerasLineas 
+         };
        });
 
-       // LOGGING EN NODE (ahora sí aparecerá en Railway logs)
-       console.log("[PLAYTOMIC] Primeras 100 líneas de la página:");
-       for (let i = 0; i < Math.min(100, extraccion.primerasLineas.length); i++) {
-         console.log("[DEBUG L" + i + "] " + extraccion.primerasLineas[i]);
-       }
+       const { canchas, horarios, primerasLineas } = extraccion;
        
-       const disponibilidad = extraccion.disponibilidad;
-       console.log("[PLAYTOMIC] Resultado extraído: " + JSON.stringify(disponibilidad));
+       // LOGGING EN NODE
+       console.log("[PLAYTOMIC] Canchas encontradas: " + JSON.stringify(canchas));
+       console.log("[PLAYTOMIC] Horarios extraídos: " + JSON.stringify(horarios));
 
        console.log("[PLAYTOMIC] Cerrando browser...");
        await browser.close();
-       return disponibilidad;
+       return { canchas, horarios };
 
      } catch (err) {
        console.error("[PLAYTOMIC] Error en scrape: " + err.message);
@@ -506,38 +513,31 @@ async function consultarDisponibilidadPlaytomic() {
    })();
 
    // Ejecutar con timeout
-   const disponibilidad = await Promise.race([scrapePromise, timeoutPromise]);
+   const resultado = await Promise.race([scrapePromise, timeoutPromise]);
 
-   // Filtrar resultados vacíos
-   const resultadoFinal = {};
-   for (const cancha in disponibilidad) {
-     if (disponibilidad[cancha] && disponibilidad[cancha].length > 0) {
-       resultadoFinal[cancha] = disponibilidad[cancha];
-     }
-   }
-
-   if (Object.keys(resultadoFinal).length === 0) {
-     console.log("[PLAYTOMIC] Sin disponibilidad");
+   // Validar que tenga datos
+   if (!resultado.canchas || resultado.canchas.length === 0 || !resultado.horarios || resultado.horarios.length === 0) {
+     console.log("[PLAYTOMIC] Sin disponibilidad (sin canchas o sin horarios)");
      return { sinDisponibilidad: true };
    }
 
    // Guardar en caché
    cacheDisponibilidad[hoy] = {
      timestamp: Date.now(),
-     data: resultadoFinal
+     data: resultado
    };
 
-   console.log("[PLAYTOMIC] ✓ Extraido correctamente: " + Object.keys(resultadoFinal).length + " canchas");
-   return resultadoFinal;
+   console.log("[PLAYTOMIC] ✓ Extraído: " + resultado.canchas.length + " canchas, " + resultado.horarios.length + " horarios");
+   return resultado;
 
  } catch (err) {
    console.error("[PLAYTOMIC] " + err.message);
    
    // Si hay error pero hay datos en caché (aunque sean viejos), devolverlos
-   const hoy = new Date().toISOString().split('T')[0];
-   if (cacheDisponibilidad[hoy]) {
+   const hoyError = new Date().toISOString().split('T')[0];
+   if (cacheDisponibilidad[hoyError]) {
      console.log("[PLAYTOMIC] Retornando caché viejo tras error");
-     return cacheDisponibilidad[hoy].data;
+     return cacheDisponibilidad[hoyError].data;
    }
    
    return { error: "No pude consultar disponibilidad en este momento" };
@@ -823,49 +823,76 @@ app.post("/webhook", async function(req, res) {
    // ── CONSULTAR DISPONIBILIDAD PLAYTOMIC (DASHBOARD ADMIN) ──
    if (quiereConsultarDisponibilidad(text)) {
      console.log("Cliente pregunta por disponibilidad, consultando Playtomic admin...");
-     const disponibilidad = await consultarDisponibilidadPlaytomic();
+     const resultado = await consultarDisponibilidadPlaytomic();
 
-     if (disponibilidad.error) {
-       console.log("Error en Playtomic: " + disponibilidad.error);
+     if (resultado.error) {
+       console.log("Error en Playtomic: " + resultado.error);
        await enviarMensaje(from, "Un momento, estoy consultando disponibilidad... 🔍");
        await notificarAgente(from);
        return;
      }
 
-     if (disponibilidad.sinDisponibilidad) {
-       console.log("Sin disponibilidad hoy");
+     // Extraer canchas y horarios (nueva estructura)
+     const canchas = resultado.canchas || [];
+     const horarios = resultado.horarios || [];
+
+     if (!canchas || canchas.length === 0 || !horarios || horarios.length === 0) {
+       console.log("Sin disponibilidad hoy (sin canchas o horarios)");
        await enviarMensaje(from, "Lamentablemente no hay canchas disponibles en este momento. ¿Prefieres que el equipo te ayude a encontrar un horario? 👍");
        return;
      }
 
-     // Formatear respuesta
-     let respuesta = "📱 Disponibilidad hoy:\n\n";
-     let totalDisponible = 0;
+     // FILTRAR POR HORA ACTUAL
+     const ahora = getHoraMexico();
+     const horaActual = ahora.getHours();
+     const minutosActuales = ahora.getMinutes();
+     const minutosTotalesActuales = horaActual * 60 + minutosActuales;
 
-     for (const cancha in disponibilidad) {
-       const horarios = disponibilidad[cancha];
-       if (horarios && horarios.length > 0) {
-         totalDisponible += horarios.length;
-         respuesta += "🏸 " + cancha + "\n";
-         
-         // Mostrar máximo 8 horarios
-         const horariosLimitados = horarios.slice(0, 8);
-         horariosLimitados.forEach(horario => {
-           respuesta += "  • " + horario + "\n";
-         });
-         
-         if (horarios.length > 8) {
-           respuesta += "  ... y " + (horarios.length - 8) + " más\n";
-         }
-         respuesta += "\n";
-       }
+     // Convertir horario "HH:MM AM/PM" a minutos del día
+     const convertirHoraAMinutos = (horaStr) => {
+       const match = horaStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM|am|pm)/i);
+       if (!match) return null;
+       
+       let horas = parseInt(match[1]);
+       const minutos = parseInt(match[2]);
+       const meridiano = match[3].toUpperCase();
+       
+       if (meridiano === "PM" && horas !== 12) horas += 12;
+       if (meridiano === "AM" && horas === 12) horas = 0;
+       
+       return horas * 60 + minutos;
+     };
+
+     // Filtrar horarios que sean >= hora actual
+     const horariosDisponibles = horarios.filter(h => {
+       const minutos = convertirHoraAMinutos(h);
+       return minutos !== null && minutos >= minutosTotalesActuales;
+     });
+
+     if (horariosDisponibles.length === 0) {
+       console.log("Sin disponibilidad futura hoy");
+       await enviarMensaje(from, "No hay canchas disponibles para el resto de hoy. ¿Prefieres que el equipo te ayude a encontrar un horario para mañana? 👍");
+       return;
      }
 
-     if (totalDisponible === 0) {
-       respuesta = "Lamentablemente no hay canchas disponibles. ¿Prefieres que el equipo te ayude a encontrar un horario? 👍";
-     } else {
-       respuesta += "¿Cuál te interesa? Escribe directamente o reserva en Playtomic 🎾";
+     // Formatear respuesta mejorada
+     let respuesta = "📋 Disponibilidad de hoy:\n\n";
+     
+     // Mostrar canchas
+     respuesta += "🏸 " + canchas.join(" • ") + "\n\n";
+     
+     // Mostrar horarios disponibles
+     respuesta += "⏰ Horarios disponibles:\n";
+     const horariosLimitados = horariosDisponibles.slice(0, 12);
+     horariosLimitados.forEach(h => {
+       respuesta += "  • " + h + "\n";
+     });
+     
+     if (horariosDisponibles.length > 12) {
+       respuesta += "  ... y " + (horariosDisponibles.length - 12) + " más\n";
      }
+     
+     respuesta += "\n¿Cuál te interesa? Escribe la hora o reserva en Playtomic 🎾";
 
      await enviarMensaje(from, respuesta);
      return;
