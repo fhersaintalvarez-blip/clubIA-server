@@ -428,13 +428,27 @@ async function consultarDisponibilidadPlaytomic() {
        // Esperar a que navegue (con timeout corto)
        await page.waitForNavigation({ waitUntil: "domcontentloaded", timeout: 10000 }).catch(() => console.log("[PLAYTOMIC] Navigation timeout, continuando..."));
 
-       // PASO 2: Navegar a schedule
+       // PASO 2: Navegar a schedule y ESPERAR a que cargue
        console.log("[PLAYTOMIC] Navegando a schedule...");
        const scheduleUrl = `https://manager.playtomic.io/dashboard/schedule?tid=${PLAYTOMIC_TENANT_ID}`;
        await page.goto(scheduleUrl, { waitUntil: "domcontentloaded" });
 
-       // Espera mínima
-       await new Promise(resolve => setTimeout(resolve, 1000));
+       // IMPORTANTE: Esperar a que aparezca el contenido del schedule
+       // Buscar cualquier elemento que indique que los horarios están listos
+       console.log("[PLAYTOMIC] Esperando a que cargue el schedule...");
+       try {
+         await page.waitForFunction(
+           () => {
+             const texto = document.body.innerText;
+             // Buscar que haya una cancha o un patrón de horarios
+             return texto.includes('Cancha') || texto.includes('available') || texto.match(/\d{1,2}:\d{2}/);
+           },
+           { timeout: 10000 }
+         );
+         console.log("[PLAYTOMIC] ✓ Schedule cargó correctamente");
+       } catch (err) {
+         console.log("[PLAYTOMIC] ⚠ Timeout esperando schedule, continuando de todas formas: " + err.message);
+       }
 
        // PASO 3: Extraer disponibilidad
        console.log("[PLAYTOMIC] Extrayendo disponibilidad...");
