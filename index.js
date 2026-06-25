@@ -443,22 +443,37 @@ async function consultarDisponibilidadPlaytomic() {
          const contenido = document.body.innerText;
          const lineas = contenido.split('\n').map(l => l.trim()).filter(l => l.length > 0);
          
+         // LOGGING: Ver primeras 50 líneas para debugging
+         console.log("[DEBUG] Primeras 50 líneas del contenido:");
+         for (let i = 0; i < Math.min(50, lineas.length); i++) {
+           console.log("[DEBUG] L" + i + ": " + lineas[i]);
+         }
+         
          let canchActual = null;
          
          for (let i = 0; i < lineas.length; i++) {
            const linea = lineas[i];
            
-           if ((linea.includes('Cancha') || linea.includes('Estadio')) && !linea.includes('No slots')) {
+           // Detectar cancha (más flexible)
+           if ((linea.includes('Cancha') || linea.includes('Estadio')) && !linea.includes('No slots') && !linea.includes('No available')) {
              canchActual = linea;
              resultado[canchActual] = [];
+             console.log("[DEBUG] Cancha encontrada: " + canchActual);
            } 
-           else if (canchActual && /^\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2}$/.test(linea)) {
+           // Detectar horarios (múltiples formatos)
+           else if (canchActual && (
+             /^\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2}/.test(linea) ||  // 6:00 - 7:00 o 6:00 - 7:00pm
+             /^\d{1,2}:\d{2}\s*(am|pm|AM|PM)/.test(linea) ||       // 6:00pm o 6:00 PM
+             /^\d{2}:\d{2}\s*-\s*\d{2}:\d{2}/.test(linea)           // 18:00 - 19:00 (24h)
+           )) {
              if (!resultado[canchActual].includes(linea)) {
                resultado[canchActual].push(linea);
+               console.log("[DEBUG] Horario agregado: " + linea);
              }
            }
          }
          
+         console.log("[DEBUG] Resultado final: " + JSON.stringify(resultado));
          return resultado;
        });
 
