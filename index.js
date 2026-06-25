@@ -358,40 +358,64 @@ async function consultarDisponibilidadPlaytomic() {
      timeout: 30000 
    });
 
-   // Esperar a que cargue el contenedor de disponibilidad
+   console.log("[PLAYTOMIC] Página cargada, esperando JS...");
+   
+   // Estrategia de espera agresiva
    try {
-     await page.waitForSelector('[class*="available"], [class*="court"], [class*="slot"]', { timeout: 5000 });
+     // Esperar a que aparezca cualquier elemento de hora en la página
+     await page.waitForFunction(() => {
+       const text = document.body.innerText;
+       // Buscar patrón de horas: 06:00, 07:00, etc
+       return /\d{2}:\d{2}/.test(text) && text.includes('Cancha');
+     }, { timeout: 10000 });
+     console.log("[PLAYTOMIC] ✓ Elemento de horas detectado");
    } catch (e) {
-     console.log("[PLAYTOMIC] No encontró selectores específicos, esperando más tiempo...");
-     await sleep(5000);
+     console.log("[PLAYTOMIC] Timeout esperando elementos, continuando...");
+   }
+
+   // Espera adicional para que se estabilice el DOM
+   await sleep(3000);
+
+   // Extraer contenido con análisis mejorado
+   const contenido = await page.evaluate(() => document.body.innerText);
+   
+   // VALIDACIÓN CRÍTICA: verificar si estamos viendo slots reales o solo horarios de apertura
+   const lineas = contenido.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+   let cantidadDeHorarios = 0;
+   let horariosUnicos = new Set();
+   
+   for (let linea of lineas) {
+     if (/^\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2}$/.test(linea)) {
+       horariosUnicos.add(linea);
+     }
+   }
+   
+   cantidadDeHorarios = horariosUnicos.size;
+   console.log("[PLAYTOMIC] Horarios únicos detectados: " + cantidadDeHorarios);
+
+   // Si vemos 5 o menos horarios únicos, son solo horarios de apertura (fallo)
+   if (cantidadDeHorarios <= 5) {
+     console.log("[PLAYTOMIC] ⚠ Detectados solo horarios genéricos, fallo en carga de JS");
+     await browser.close();
+     return { fallback: true };
    }
 
    // Extraer disponibilidad usando lógica mejorada
    const disponibilidad = await page.evaluate(() => {
      const resultado = {};
-     
-     // Estrategia 1: Buscar por estructura de texto específica
      const contenido = document.body.innerText;
      const lineas = contenido.split('\n').map(l => l.trim()).filter(l => l.length > 0);
      
      let canchActual = null;
      let horariosCancha = [];
-     let enSeccionDisponibilidad = false;
      
      for (let i = 0; i < lineas.length; i++) {
        const linea = lineas[i];
        
-       // Detectar si estamos en la sección "Available courts"
-       if (linea.includes('available') && linea.toLowerCase().includes('court')) {
-         enSeccionDisponibilidad = true;
-         continue;
-       }
-       
-       // Detectar nombre de cancha (indicador de nueva cancha)
+       // Detectar nombre de cancha
        if ((linea.includes('Cancha') || linea.includes('Estadio')) && !linea.includes('No slots')) {
-         // Guardar cancha anterior si existe
          if (canchActual && horariosCancha.length > 0) {
-           resultado[canchActual] = [...new Set(horariosCancha)]; // Eliminar duplicados
+           resultado[canchActual] = [...new Set(horariosCancha)];
          }
          
          canchActual = linea;
@@ -399,19 +423,16 @@ async function consultarDisponibilidadPlaytomic() {
        } 
        // Detectar horario con formato HH:MM - HH:MM
        else if (canchActual && /^\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2}$/.test(linea)) {
-         // Evitar duplicados
          if (!horariosCancha.includes(linea)) {
            horariosCancha.push(linea);
          }
        }
-       // Si vemos "No slots available", limpiar la cancha actual
        else if (linea.includes('No slots available')) {
          canchActual = null;
          horariosCancha = [];
        }
      }
      
-     // Guardar última cancha si existe
      if (canchActual && horariosCancha.length > 0) {
        resultado[canchActual] = [...new Set(horariosCancha)];
      }
@@ -421,12 +442,6 @@ async function consultarDisponibilidadPlaytomic() {
 
    await browser.close();
 
-   // Si no encontró nada, devolver error
-   if (Object.keys(disponibilidad).length === 0) {
-     console.log("[PLAYTOMIC] No se extrajeron datos válidos");
-     return { error: "No se pudo extraer disponibilidad en este momento" };
-   }
-
    // Filtrar resultados vacíos
    const resultadoFinal = {};
    for (const cancha in disponibilidad) {
@@ -435,7 +450,6 @@ async function consultarDisponibilidadPlaytomic() {
      }
    }
 
-   // Si después de filtrar no hay nada
    if (Object.keys(resultadoFinal).length === 0) {
      console.log("[PLAYTOMIC] Todas las canchas sin disponibilidad");
      return { sinDisponibilidad: true };
@@ -447,7 +461,7 @@ async function consultarDisponibilidadPlaytomic() {
      data: resultadoFinal
    };
 
-   console.log("[PLAYTOMIC] Datos extraidos: " + JSON.stringify(resultadoFinal).substring(0, 300));
+   console.log("[PLAYTOMIC] Datos extraidos correctamente");
    return resultadoFinal;
 
  } catch (err) {
@@ -736,6 +750,13 @@ app.post("/webhook", async function(req, res) {
    if (quiereConsultarDisponibilidad(text)) {
      console.log("Cliente pregunta por disponibilidad, consultando Playtomic...");
      const disponibilidad = await consultarDisponibilidadPlaytomic();
+
+     // Manejo de fallback: Playtomic no cargó correctamente
+     if (disponibilidad.fallback) {
+       console.log("Fallback a Playtomic directo");
+       await enviarMensaje(from, "Reserva directamente en Playtomic para ver toda la disponibilidad en tiempo real:\n\nplaytomic.com/clubs/propadel-merida 🎾\n\n¿Necesitas ayuda con otra cosa? 👍");
+       return;
+     }
 
      if (disponibilidad.error) {
        console.log("Error en Playtomic: " + disponibilidad.error);
