@@ -20,7 +20,8 @@ let turnoAgente = 0;
 
 // ── PLAYTOMIC CACHE ──
 let cacheDisponibilidad = {};
-const CACHE_TTL = 15 * 60 * 1000; // 15 minutos
+const CACHE_TTL = 30 * 60 * 1000; // 30 minutos
+let actualizandoCache = false;
 
 const SYSTEM_PROMPT = `Eres Raccoon, el asistente virtual de ProPadel Merida, el mejor club de padel de Merida, Yucatan. Respondes mensajes de WhatsApp de clientes de forma amable, corta y profesional. Usa maximo 2 emojis por mensaje. El tono es relajado y amigable, como el ambiente del club. NUNCA te presentes ni digas tu nombre en las respuestas.
 IDIOMA: Responde siempre en el mismo idioma que usa el cliente. Si escribe en inglés, responde en inglés con el mismo tono amigable.
@@ -331,135 +332,93 @@ function sleep(ms) {
  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-// ── CREDENCIALES PLAYTOMIC MANAGER ──
-const PLAYTOMIC_EMAIL = "cami.lajeme@gmail.com";
-const PLAYTOMIC_PASSWORD = "Ca4954003.";
-const PLAYTOMIC_TENANT_ID = "8bebc629-057d-46b7-a617-bd37c4a7e702";
-
-// ── PUPPETEER: CONSULTAR DISPONIBILIDAD PLAYTOMIC (ADMIN DASHBOARD) ──
+// ── PUPPETEER: CONSULTAR DISPONIBILIDAD PLAYTOMIC (OPTIMIZADO) ──
 async function consultarDisponibilidadPlaytomic() {
  try {
    // Chequear caché
    const hoy = new Date().toISOString().split('T')[0];
    if (cacheDisponibilidad[hoy] && (Date.now() - cacheDisponibilidad[hoy].timestamp) < CACHE_TTL) {
-     console.log("[PLAYTOMIC] Cache hit para hoy: " + hoy);
+     console.log("[PLAYTOMIC] ✓ Retornando desde caché");
      return cacheDisponibilidad[hoy].data;
    }
 
-   console.log("[PLAYTOMIC] Scrapeando disponibilidad desde admin...");
+   console.log("[PLAYTOMIC] Iniciando scrape...");
 
-   const browser = await puppeteer.launch({
-     headless: true,
-     args: [
-       "--no-sandbox",
-       "--disable-setuid-sandbox",
-       "--disable-dev-shm-usage"
-     ]
-   });
+   // Timeout de 20 segundos máximo
+   const timeoutPromise = new Promise((_, reject) => 
+     setTimeout(() => reject(new Error("Timeout 20s")), 20000)
+   );
 
-   const page = await browser.newPage();
+   const scrapePromise = (async () => {
+     const browser = await puppeteer.launch({
+       headless: true,
+       args: [
+         "--no-sandbox",
+         "--disable-setuid-sandbox",
+         "--disable-dev-shm-usage"
+       ]
+     });
 
-   // PASO 1: Login
-   console.log("[PLAYTOMIC] Iniciando login...");
-   await page.goto("https://manager.playtomic.io/login", { 
-     waitUntil: "networkidle2", 
-     timeout: 30000 
-   });
+     const page = await browser.newPage();
+     page.setDefaultTimeout(15000);
+     page.setDefaultNavigationTimeout(15000);
 
-   // Llenar formulario de login
-   await page.type('input[type="email"], input[name="email"]', PLAYTOMIC_EMAIL, { delay: 50 });
-   await page.type('input[type="password"], input[name="password"]', PLAYTOMIC_PASSWORD, { delay: 50 });
-   
-   // Click en login
-   await Promise.all([
-     page.click('button[type="submit"], button:contains("Login"), button:contains("Sign in")'),
-     page.waitForNavigation({ waitUntil: "networkidle2", timeout: 30000 })
-   ]);
-
-   console.log("[PLAYTOMIC] ✓ Login exitoso");
-
-   // PASO 2: Navegar a schedule
-   const scheduleUrl = `https://manager.playtomic.io/dashboard/schedule?tid=${PLAYTOMIC_TENANT_ID}`;
-   await page.goto(scheduleUrl, { 
-     waitUntil: "networkidle2", 
-     timeout: 30000 
-   });
-
-   console.log("[PLAYTOMIC] ✓ Dashboard cargado");
-
-   // Esperar a que cargue la tabla/grid de disponibilidad
-   await sleep(3000);
-
-   // PASO 3: Extraer disponibilidad
-   const disponibilidad = await page.evaluate(() => {
-     const resultado = {};
-     
-     // Estrategia 1: Buscar en tablas
-     const tablas = document.querySelectorAll('table');
-     if (tablas.length > 0) {
-       console.log("[EVAL] Encontradas " + tablas.length + " tablas");
+     try {
+       // PASO 1: Login
+       await page.goto("https://manager.playtomic.io/login", { waitUntil: "domcontentloaded" });
+       await page.type('input[type="email"], input[name="email"]', PLAYTOMIC_EMAIL, { delay: 30 });
+       await page.type('input[type="password"], input[name="password"]', PLAYTOMIC_PASSWORD, { delay: 30 });
        
-       tablas.forEach((tabla, idx) => {
-         const filas = tabla.querySelectorAll('tr');
-         if (filas.length > 0) {
-           let canchActual = null;
-           
-           filas.forEach(fila => {
-             const celdas = fila.querySelectorAll('td, th');
-             if (celdas.length > 0) {
-               const primerTexto = celdas[0]?.textContent?.trim() || "";
-               
-               // Detectar nombre de cancha
-               if (primerTexto.includes('Cancha') || primerTexto.includes('Estadio')) {
-                 canchActual = primerTexto;
-                 resultado[canchActual] = [];
-               }
-               // Detectar horarios disponibles
-               else if (canchActual && primerTexto.match(/\d{1,2}:\d{2}/)) {
-                 // Si la celda tiene color verde o "available", es disponible
-                 const estilo = fila.getAttribute('style') || '';
-                 const clase = fila.getAttribute('class') || '';
-                 const esDisponible = estilo.includes('green') || clase.includes('available') || 
-                                     celdas.some(c => c.getAttribute('style')?.includes('green'));
-                 
-                 if (esDisponible || primerTexto) {
-                   resultado[canchActual].push(primerTexto);
-                 }
-               }
-             }
-           });
-         }
-       });
-     }
-     
-     // Estrategia 2: Buscar en divs con estructura de calendario
-     if (Object.keys(resultado).length === 0) {
-       const contenido = document.body.innerText;
-       const lineas = contenido.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+       await Promise.race([
+         page.click('button[type="submit"], button:contains("Login")'),
+         page.click('button')
+       ]);
        
-       let canchActual = null;
-       for (let i = 0; i < lineas.length; i++) {
-         const linea = lineas[i];
+       await page.waitForNavigation({ waitUntil: "domcontentloaded" }).catch(() => {});
+
+       // PASO 2: Navegar a schedule
+       const scheduleUrl = `https://manager.playtomic.io/dashboard/schedule?tid=${PLAYTOMIC_TENANT_ID}`;
+       await page.goto(scheduleUrl, { waitUntil: "domcontentloaded" });
+
+       // Espera mínima (no 3 segundos)
+       await page.waitForTimeout(1500);
+
+       // PASO 3: Extraer disponibilidad
+       const disponibilidad = await page.evaluate(() => {
+         const resultado = {};
+         const contenido = document.body.innerText;
+         const lineas = contenido.split('\n').map(l => l.trim()).filter(l => l.length > 0);
          
-         if ((linea.includes('Cancha') || linea.includes('Estadio')) && !linea.includes('No slots')) {
-           if (canchActual && resultado[canchActual]?.length > 0) {
-             // Guardar anterior
-           }
-           canchActual = linea;
-           resultado[canchActual] = [];
-         } 
-         else if (canchActual && /^\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2}$/.test(linea)) {
-           if (!resultado[canchActual].includes(linea)) {
-             resultado[canchActual].push(linea);
+         let canchActual = null;
+         
+         for (let i = 0; i < lineas.length; i++) {
+           const linea = lineas[i];
+           
+           if ((linea.includes('Cancha') || linea.includes('Estadio')) && !linea.includes('No slots')) {
+             canchActual = linea;
+             resultado[canchActual] = [];
+           } 
+           else if (canchActual && /^\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2}$/.test(linea)) {
+             if (!resultado[canchActual].includes(linea)) {
+               resultado[canchActual].push(linea);
+             }
            }
          }
-       }
-     }
-     
-     return resultado;
-   });
+         
+         return resultado;
+       });
 
-   await browser.close();
+       await browser.close();
+       return disponibilidad;
+
+     } catch (err) {
+       try { await browser.close(); } catch {}
+       throw err;
+     }
+   })();
+
+   // Ejecutar con timeout
+   const disponibilidad = await Promise.race([scrapePromise, timeoutPromise]);
 
    // Filtrar resultados vacíos
    const resultadoFinal = {};
@@ -470,8 +429,8 @@ async function consultarDisponibilidadPlaytomic() {
    }
 
    if (Object.keys(resultadoFinal).length === 0) {
-     console.log("[PLAYTOMIC] ⚠ No se extrajeron datos");
-     return { error: "No se pudo extraer disponibilidad" };
+     console.log("[PLAYTOMIC] Sin disponibilidad");
+     return { sinDisponibilidad: true };
    }
 
    // Guardar en caché
@@ -480,11 +439,20 @@ async function consultarDisponibilidadPlaytomic() {
      data: resultadoFinal
    };
 
-   console.log("[PLAYTOMIC] ✓ Datos extraidos: " + Object.keys(resultadoFinal).length + " canchas");
+   console.log("[PLAYTOMIC] ✓ Extraido en caché");
    return resultadoFinal;
 
  } catch (err) {
-   console.error("[PLAYTOMIC] Error: " + err.message);
+   console.error("[PLAYTOMIC] " + err.message);
+   
+   // Si hay error, intentar actualizar en background sin bloquear
+   if (!actualizandoCache) {
+     actualizandoCache = true;
+     consultarDisponibilidadPlaytomic()
+       .then(() => { actualizandoCache = false; })
+       .catch(() => { actualizandoCache = false; });
+   }
+   
    return { error: "No pude consultar disponibilidad en este momento" };
  }
 }
