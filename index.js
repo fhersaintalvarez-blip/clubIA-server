@@ -349,9 +349,9 @@ async function consultarDisponibilidadPlaytomic() {
 
    console.log("[PLAYTOMIC] Iniciando scrape...");
 
-   // Timeout de 30 segundos máximo
+   // Timeout de 40 segundos máximo (login + schedule tarda)
    const timeoutPromise = new Promise((_, reject) => 
-     setTimeout(() => reject(new Error("Timeout 30s")), 30000)
+     setTimeout(() => reject(new Error("Timeout 40s")), 40000)
    );
 
    const scrapePromise = (async () => {
@@ -434,20 +434,24 @@ async function consultarDisponibilidadPlaytomic() {
        await page.goto(scheduleUrl, { waitUntil: "domcontentloaded" });
 
        // IMPORTANTE: Esperar a que aparezca el contenido del schedule
-       // Buscar cualquier elemento que indique que los horarios están listos
-       console.log("[PLAYTOMIC] Esperando a que cargue el schedule...");
+       // La página tarda en renderizar, esperamos hasta 20 segundos
+       console.log("[PLAYTOMIC] Esperando a que cargue el schedule (máx 20s)...");
        try {
          await page.waitForFunction(
            () => {
              const texto = document.body.innerText;
-             // Buscar que haya una cancha o un patrón de horarios
-             return texto.includes('Cancha') || texto.includes('available') || texto.match(/\d{1,2}:\d{2}/);
+             // Schedule cargó si hay CUALQUIERA de estos indicadores
+             const tieneCancha = texto.includes('Cancha') || texto.includes('CANCHA');
+             const tieneHorario = /\d{1,2}:\d{2}\s*(AM|PM|am|pm)/.test(texto);
+             const tieneEstadio = texto.includes('Estadio') || texto.includes('ESTADIO');
+             return tieneCancha || tieneHorario || tieneEstadio;
            },
-           { timeout: 10000 }
+           { timeout: 20000 }
          );
          console.log("[PLAYTOMIC] ✓ Schedule cargó correctamente");
        } catch (err) {
-         console.log("[PLAYTOMIC] ⚠ Timeout esperando schedule, continuando de todas formas: " + err.message);
+         console.log("[PLAYTOMIC] ⚠ Timeout esperando schedule: " + err.message);
+         console.log("[PLAYTOMIC] Continuando de todas formas...");
        }
 
        // PASO 3: Extraer disponibilidad con mejor estructura
