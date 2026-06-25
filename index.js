@@ -358,46 +358,62 @@ async function consultarDisponibilidadPlaytomic() {
      timeout: 30000 
    });
 
-   // Esperar a que cargue la disponibilidad
-   await sleep(3000); // Dar tiempo a que cargue el selector
+   // Esperar a que cargue el contenedor de disponibilidad
+   try {
+     await page.waitForSelector('[class*="available"], [class*="court"], [class*="slot"]', { timeout: 5000 });
+   } catch (e) {
+     console.log("[PLAYTOMIC] No encontró selectores específicos, esperando más tiempo...");
+     await sleep(5000);
+   }
 
-   // Extraer disponibilidad de la página pública
+   // Extraer disponibilidad usando lógica mejorada
    const disponibilidad = await page.evaluate(() => {
      const resultado = {};
      
-     // Extraer todo el texto de la página
+     // Estrategia 1: Buscar por estructura de texto específica
      const contenido = document.body.innerText;
      const lineas = contenido.split('\n').map(l => l.trim()).filter(l => l.length > 0);
      
-     // Patrones para identificar canchas y horarios
      let canchActual = null;
      let horariosCancha = [];
+     let enSeccionDisponibilidad = false;
      
      for (let i = 0; i < lineas.length; i++) {
        const linea = lineas[i];
        
-       // Detectar nombre de cancha
-       if (linea.includes('Cancha') || linea.includes('Estadio')) {
+       // Detectar si estamos en la sección "Available courts"
+       if (linea.includes('available') && linea.toLowerCase().includes('court')) {
+         enSeccionDisponibilidad = true;
+         continue;
+       }
+       
+       // Detectar nombre de cancha (indicador de nueva cancha)
+       if ((linea.includes('Cancha') || linea.includes('Estadio')) && !linea.includes('No slots')) {
          // Guardar cancha anterior si existe
          if (canchActual && horariosCancha.length > 0) {
-           resultado[canchActual] = horariosCancha;
+           resultado[canchActual] = [...new Set(horariosCancha)]; // Eliminar duplicados
          }
          
          canchActual = linea;
          horariosCancha = [];
        } 
        // Detectar horario con formato HH:MM - HH:MM
-       else if (canchActual && /\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2}/.test(linea)) {
-         // Ignorar etiquetas de disponibilidad
-         if (!linea.includes('available') && !linea.includes('occupied')) {
+       else if (canchActual && /^\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2}$/.test(linea)) {
+         // Evitar duplicados
+         if (!horariosCancha.includes(linea)) {
            horariosCancha.push(linea);
          }
+       }
+       // Si vemos "No slots available", limpiar la cancha actual
+       else if (linea.includes('No slots available')) {
+         canchActual = null;
+         horariosCancha = [];
        }
      }
      
      // Guardar última cancha si existe
      if (canchActual && horariosCancha.length > 0) {
-       resultado[canchActual] = horariosCancha;
+       resultado[canchActual] = [...new Set(horariosCancha)];
      }
      
      return resultado;
@@ -405,20 +421,34 @@ async function consultarDisponibilidadPlaytomic() {
 
    await browser.close();
 
-   // Si no encontró nada, intenta de nuevo con selectors más específicos
+   // Si no encontró nada, devolver error
    if (Object.keys(disponibilidad).length === 0) {
-     console.log("[PLAYTOMIC] No se extrajeron datos, reintentando con scraper mejorado...");
+     console.log("[PLAYTOMIC] No se extrajeron datos válidos");
      return { error: "No se pudo extraer disponibilidad en este momento" };
+   }
+
+   // Filtrar resultados vacíos
+   const resultadoFinal = {};
+   for (const cancha in disponibilidad) {
+     if (disponibilidad[cancha].length > 0) {
+       resultadoFinal[cancha] = disponibilidad[cancha];
+     }
+   }
+
+   // Si después de filtrar no hay nada
+   if (Object.keys(resultadoFinal).length === 0) {
+     console.log("[PLAYTOMIC] Todas las canchas sin disponibilidad");
+     return { sinDisponibilidad: true };
    }
 
    // Guardar en caché
    cacheDisponibilidad[hoy] = {
      timestamp: Date.now(),
-     data: disponibilidad
+     data: resultadoFinal
    };
 
-   console.log("[PLAYTOMIC] Datos extraidos: " + JSON.stringify(disponibilidad).substring(0, 300));
-   return disponibilidad;
+   console.log("[PLAYTOMIC] Datos extraidos: " + JSON.stringify(resultadoFinal).substring(0, 300));
+   return resultadoFinal;
 
  } catch (err) {
    console.error("[PLAYTOMIC] Error scrapeando: " + err.message);
@@ -714,6 +744,12 @@ app.post("/webhook", async function(req, res) {
        return;
      }
 
+     if (disponibilidad.sinDisponibilidad) {
+       console.log("Sin disponibilidad hoy");
+       await enviarMensaje(from, "Lamentablemente no hay canchas disponibles en este momento. ¿Prefieres que el equipo te ayude a encontrar un horario? 👍");
+       return;
+     }
+
      // Formatear respuesta
      let respuesta = "📱 Disponibilidad hoy:\n\n";
      let totalDisponible = 0;
@@ -738,7 +774,7 @@ app.post("/webhook", async function(req, res) {
      }
 
      if (totalDisponible === 0) {
-       respuesta = "Por ahora no hay canchas disponibles. ¿Prefieres que el equipo te ayude a encontrar un horario? 👍";
+       respuesta = "Lamentablemente no hay canchas disponibles. ¿Prefieres que el equipo te ayude a encontrar un horario? 👍";
      } else {
        respuesta += "¿Cuál te interesa? Escribe directamente o reserva en Playtomic 🎾";
      }
