@@ -434,7 +434,7 @@ async function consultarDisponibilidadPlaytomic() {
        await page.goto(scheduleUrl, { waitUntil: "domcontentloaded" });
 
        // Espera mínima
-       await page.waitForTimeout(1000);
+       await new Promise(resolve => setTimeout(resolve, 1000));
 
        // PASO 3: Extraer disponibilidad
        console.log("[PLAYTOMIC] Extrayendo disponibilidad...");
