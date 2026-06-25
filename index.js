@@ -331,7 +331,12 @@ function sleep(ms) {
  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-// ── PUPPETEER: CONSULTAR DISPONIBILIDAD PLAYTOMIC (VERSIÓN PÚBLICA) ──
+// ── CREDENCIALES PLAYTOMIC MANAGER ──
+const PLAYTOMIC_EMAIL = "cami.lajeme@gmail.com";
+const PLAYTOMIC_PASSWORD = "Ca4954003.";
+const PLAYTOMIC_TENANT_ID = "8bebc629-057d-46b7-a617-bd37c4a7e702";
+
+// ── PUPPETEER: CONSULTAR DISPONIBILIDAD PLAYTOMIC (ADMIN DASHBOARD) ──
 async function consultarDisponibilidadPlaytomic() {
  try {
    // Chequear caché
@@ -341,7 +346,7 @@ async function consultarDisponibilidadPlaytomic() {
      return cacheDisponibilidad[hoy].data;
    }
 
-   console.log("[PLAYTOMIC] Scrapeando disponibilidad de hoy...");
+   console.log("[PLAYTOMIC] Scrapeando disponibilidad desde admin...");
 
    const browser = await puppeteer.launch({
      headless: true,
@@ -353,88 +358,102 @@ async function consultarDisponibilidadPlaytomic() {
    });
 
    const page = await browser.newPage();
-   await page.goto("https://playtomic.com/clubs/propadel-merida", { 
+
+   // PASO 1: Login
+   console.log("[PLAYTOMIC] Iniciando login...");
+   await page.goto("https://manager.playtomic.io/login", { 
      waitUntil: "networkidle2", 
      timeout: 30000 
    });
 
-   console.log("[PLAYTOMIC] Página cargada, esperando JS...");
+   // Llenar formulario de login
+   await page.type('input[type="email"], input[name="email"]', PLAYTOMIC_EMAIL, { delay: 50 });
+   await page.type('input[type="password"], input[name="password"]', PLAYTOMIC_PASSWORD, { delay: 50 });
    
-   // Estrategia de espera agresiva
-   try {
-     // Esperar a que aparezca cualquier elemento de hora en la página
-     await page.waitForFunction(() => {
-       const text = document.body.innerText;
-       // Buscar patrón de horas: 06:00, 07:00, etc
-       return /\d{2}:\d{2}/.test(text) && text.includes('Cancha');
-     }, { timeout: 10000 });
-     console.log("[PLAYTOMIC] ✓ Elemento de horas detectado");
-   } catch (e) {
-     console.log("[PLAYTOMIC] Timeout esperando elementos, continuando...");
-   }
+   // Click en login
+   await Promise.all([
+     page.click('button[type="submit"], button:contains("Login"), button:contains("Sign in")'),
+     page.waitForNavigation({ waitUntil: "networkidle2", timeout: 30000 })
+   ]);
 
-   // Espera adicional para que se estabilice el DOM
+   console.log("[PLAYTOMIC] ✓ Login exitoso");
+
+   // PASO 2: Navegar a schedule
+   const scheduleUrl = `https://manager.playtomic.io/dashboard/schedule?tid=${PLAYTOMIC_TENANT_ID}`;
+   await page.goto(scheduleUrl, { 
+     waitUntil: "networkidle2", 
+     timeout: 30000 
+   });
+
+   console.log("[PLAYTOMIC] ✓ Dashboard cargado");
+
+   // Esperar a que cargue la tabla/grid de disponibilidad
    await sleep(3000);
 
-   // Extraer contenido con análisis mejorado
-   const contenido = await page.evaluate(() => document.body.innerText);
-   
-   // VALIDACIÓN CRÍTICA: verificar si estamos viendo slots reales o solo horarios de apertura
-   const lineas = contenido.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-   let cantidadDeHorarios = 0;
-   let horariosUnicos = new Set();
-   
-   for (let linea of lineas) {
-     if (/^\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2}$/.test(linea)) {
-       horariosUnicos.add(linea);
-     }
-   }
-   
-   cantidadDeHorarios = horariosUnicos.size;
-   console.log("[PLAYTOMIC] Horarios únicos detectados: " + cantidadDeHorarios);
-
-   // Si vemos 5 o menos horarios únicos, son solo horarios de apertura (fallo)
-   if (cantidadDeHorarios <= 5) {
-     console.log("[PLAYTOMIC] ⚠ Detectados solo horarios genéricos, fallo en carga de JS");
-     await browser.close();
-     return { fallback: true };
-   }
-
-   // Extraer disponibilidad usando lógica mejorada
+   // PASO 3: Extraer disponibilidad
    const disponibilidad = await page.evaluate(() => {
      const resultado = {};
-     const contenido = document.body.innerText;
-     const lineas = contenido.split('\n').map(l => l.trim()).filter(l => l.length > 0);
      
-     let canchActual = null;
-     let horariosCancha = [];
-     
-     for (let i = 0; i < lineas.length; i++) {
-       const linea = lineas[i];
+     // Estrategia 1: Buscar en tablas
+     const tablas = document.querySelectorAll('table');
+     if (tablas.length > 0) {
+       console.log("[EVAL] Encontradas " + tablas.length + " tablas");
        
-       // Detectar nombre de cancha
-       if ((linea.includes('Cancha') || linea.includes('Estadio')) && !linea.includes('No slots')) {
-         if (canchActual && horariosCancha.length > 0) {
-           resultado[canchActual] = [...new Set(horariosCancha)];
+       tablas.forEach((tabla, idx) => {
+         const filas = tabla.querySelectorAll('tr');
+         if (filas.length > 0) {
+           let canchActual = null;
+           
+           filas.forEach(fila => {
+             const celdas = fila.querySelectorAll('td, th');
+             if (celdas.length > 0) {
+               const primerTexto = celdas[0]?.textContent?.trim() || "";
+               
+               // Detectar nombre de cancha
+               if (primerTexto.includes('Cancha') || primerTexto.includes('Estadio')) {
+                 canchActual = primerTexto;
+                 resultado[canchActual] = [];
+               }
+               // Detectar horarios disponibles
+               else if (canchActual && primerTexto.match(/\d{1,2}:\d{2}/)) {
+                 // Si la celda tiene color verde o "available", es disponible
+                 const estilo = fila.getAttribute('style') || '';
+                 const clase = fila.getAttribute('class') || '';
+                 const esDisponible = estilo.includes('green') || clase.includes('available') || 
+                                     celdas.some(c => c.getAttribute('style')?.includes('green'));
+                 
+                 if (esDisponible || primerTexto) {
+                   resultado[canchActual].push(primerTexto);
+                 }
+               }
+             }
+           });
          }
-         
-         canchActual = linea;
-         horariosCancha = [];
-       } 
-       // Detectar horario con formato HH:MM - HH:MM
-       else if (canchActual && /^\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2}$/.test(linea)) {
-         if (!horariosCancha.includes(linea)) {
-           horariosCancha.push(linea);
-         }
-       }
-       else if (linea.includes('No slots available')) {
-         canchActual = null;
-         horariosCancha = [];
-       }
+       });
      }
      
-     if (canchActual && horariosCancha.length > 0) {
-       resultado[canchActual] = [...new Set(horariosCancha)];
+     // Estrategia 2: Buscar en divs con estructura de calendario
+     if (Object.keys(resultado).length === 0) {
+       const contenido = document.body.innerText;
+       const lineas = contenido.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+       
+       let canchActual = null;
+       for (let i = 0; i < lineas.length; i++) {
+         const linea = lineas[i];
+         
+         if ((linea.includes('Cancha') || linea.includes('Estadio')) && !linea.includes('No slots')) {
+           if (canchActual && resultado[canchActual]?.length > 0) {
+             // Guardar anterior
+           }
+           canchActual = linea;
+           resultado[canchActual] = [];
+         } 
+         else if (canchActual && /^\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2}$/.test(linea)) {
+           if (!resultado[canchActual].includes(linea)) {
+             resultado[canchActual].push(linea);
+           }
+         }
+       }
      }
      
      return resultado;
@@ -445,14 +464,14 @@ async function consultarDisponibilidadPlaytomic() {
    // Filtrar resultados vacíos
    const resultadoFinal = {};
    for (const cancha in disponibilidad) {
-     if (disponibilidad[cancha].length > 0) {
+     if (disponibilidad[cancha] && disponibilidad[cancha].length > 0) {
        resultadoFinal[cancha] = disponibilidad[cancha];
      }
    }
 
    if (Object.keys(resultadoFinal).length === 0) {
-     console.log("[PLAYTOMIC] Todas las canchas sin disponibilidad");
-     return { sinDisponibilidad: true };
+     console.log("[PLAYTOMIC] ⚠ No se extrajeron datos");
+     return { error: "No se pudo extraer disponibilidad" };
    }
 
    // Guardar en caché
@@ -461,11 +480,11 @@ async function consultarDisponibilidadPlaytomic() {
      data: resultadoFinal
    };
 
-   console.log("[PLAYTOMIC] Datos extraidos correctamente");
+   console.log("[PLAYTOMIC] ✓ Datos extraidos: " + Object.keys(resultadoFinal).length + " canchas");
    return resultadoFinal;
 
  } catch (err) {
-   console.error("[PLAYTOMIC] Error scrapeando: " + err.message);
+   console.error("[PLAYTOMIC] Error: " + err.message);
    return { error: "No pude consultar disponibilidad en este momento" };
  }
 }
@@ -746,17 +765,10 @@ app.post("/webhook", async function(req, res) {
      return;
    }
 
-   // ── CONSULTAR DISPONIBILIDAD PLAYTOMIC (VERSIÓN PÚBLICA) ──
+   // ── CONSULTAR DISPONIBILIDAD PLAYTOMIC (DASHBOARD ADMIN) ──
    if (quiereConsultarDisponibilidad(text)) {
-     console.log("Cliente pregunta por disponibilidad, consultando Playtomic...");
+     console.log("Cliente pregunta por disponibilidad, consultando Playtomic admin...");
      const disponibilidad = await consultarDisponibilidadPlaytomic();
-
-     // Manejo de fallback: Playtomic no cargó correctamente
-     if (disponibilidad.fallback) {
-       console.log("Fallback a Playtomic directo");
-       await enviarMensaje(from, "Reserva directamente en Playtomic para ver toda la disponibilidad en tiempo real:\n\nplaytomic.com/clubs/propadel-merida 🎾\n\n¿Necesitas ayuda con otra cosa? 👍");
-       return;
-     }
 
      if (disponibilidad.error) {
        console.log("Error en Playtomic: " + disponibilidad.error);
@@ -781,7 +793,7 @@ app.post("/webhook", async function(req, res) {
          totalDisponible += horarios.length;
          respuesta += "🏸 " + cancha + "\n";
          
-         // Mostrar máximo 8 horarios, no más
+         // Mostrar máximo 8 horarios
          const horariosLimitados = horarios.slice(0, 8);
          horariosLimitados.forEach(horario => {
            respuesta += "  • " + horario + "\n";
