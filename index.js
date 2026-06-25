@@ -23,6 +23,11 @@ let cacheDisponibilidad = {};
 const CACHE_TTL = 30 * 60 * 1000; // 30 minutos
 let actualizandoCache = false;
 
+// ── CREDENCIALES PLAYTOMIC MANAGER ──
+const PLAYTOMIC_EMAIL = "cami.lajeme@gmail.com";
+const PLAYTOMIC_PASSWORD = "Ca4954003.";
+const PLAYTOMIC_TENANT_ID = "8bebc629-057d-46b7-a617-bd37c4a7e702";
+
 const SYSTEM_PROMPT = `Eres Raccoon, el asistente virtual de ProPadel Merida, el mejor club de padel de Merida, Yucatan. Respondes mensajes de WhatsApp de clientes de forma amable, corta y profesional. Usa maximo 2 emojis por mensaje. El tono es relajado y amigable, como el ambiente del club. NUNCA te presentes ni digas tu nombre en las respuestas.
 IDIOMA: Responde siempre en el mismo idioma que usa el cliente. Si escribe en inglés, responde en inglés con el mismo tono amigable.
 Si es el primer mensaje del cliente (no hay historial previo), saluda con: "¡Hola qué tal! 🦝 Bienvenido a ProPadel Mérida. ¿En qué te puedo ayudar?" y luego responde su pregunta si hizo alguna. Si ya hay historial, responde directo sin saludar.
@@ -344,9 +349,9 @@ async function consultarDisponibilidadPlaytomic() {
 
    console.log("[PLAYTOMIC] Iniciando scrape...");
 
-   // Timeout de 20 segundos máximo
+   // Timeout de 30 segundos máximo
    const timeoutPromise = new Promise((_, reject) => 
-     setTimeout(() => reject(new Error("Timeout 20s")), 20000)
+     setTimeout(() => reject(new Error("Timeout 30s")), 30000)
    );
 
    const scrapePromise = (async () => {
@@ -360,30 +365,79 @@ async function consultarDisponibilidadPlaytomic() {
      });
 
      const page = await browser.newPage();
-     page.setDefaultTimeout(15000);
-     page.setDefaultNavigationTimeout(15000);
+     page.setDefaultTimeout(20000);
+     page.setDefaultNavigationTimeout(20000);
 
      try {
        // PASO 1: Login
+       console.log("[PLAYTOMIC] Navegando a login...");
        await page.goto("https://manager.playtomic.io/login", { waitUntil: "domcontentloaded" });
-       await page.type('input[type="email"], input[name="email"]', PLAYTOMIC_EMAIL, { delay: 30 });
-       await page.type('input[type="password"], input[name="password"]', PLAYTOMIC_PASSWORD, { delay: 30 });
        
-       await Promise.race([
-         page.click('button[type="submit"], button:contains("Login")'),
-         page.click('button')
-       ]);
+       // Esperar a que cargue el formulario
+       await page.waitForSelector('input[type="email"], input[type="password"]', { timeout: 5000 }).catch(() => console.log("[PLAYTOMIC] Selector no encontrado, intentando alternativa"));
+
+       console.log("[PLAYTOMIC] Rellenando credenciales...");
        
-       await page.waitForNavigation({ waitUntil: "domcontentloaded" }).catch(() => {});
+       // Intentar múltiples selectores
+       const emailSelectors = ['input[type="email"]', 'input[name="email"]', 'input[id*="email"]'];
+       const passSelectors = ['input[type="password"]', 'input[name="password"]', 'input[id*="password"]'];
+       
+       let emailSet = false;
+       for (const sel of emailSelectors) {
+         try {
+           await page.type(sel, PLAYTOMIC_EMAIL, { delay: 20 });
+           emailSet = true;
+           console.log("[PLAYTOMIC] Email ingresado ✓");
+           break;
+         } catch (e) {}
+       }
+       
+       let passSet = false;
+       for (const sel of passSelectors) {
+         try {
+           await page.type(sel, PLAYTOMIC_PASSWORD, { delay: 20 });
+           passSet = true;
+           console.log("[PLAYTOMIC] Password ingresada ✓");
+           break;
+         } catch (e) {}
+       }
+
+       if (!emailSet || !passSet) {
+         throw new Error("No se pudieron rellenar credenciales");
+       }
+
+       console.log("[PLAYTOMIC] Enviando login...");
+       
+       // Click en botón de login
+       const buttonSelectors = ['button[type="submit"]', 'button:has-text("Login")', 'button:has-text("Sign in")', 'button'];
+       let clicked = false;
+       
+       for (const sel of buttonSelectors) {
+         try {
+           await page.click(sel);
+           clicked = true;
+           console.log("[PLAYTOMIC] Click en login ✓");
+           break;
+         } catch (e) {}
+       }
+
+       if (!clicked) {
+         throw new Error("No se pudo hacer click en login");
+       }
+
+       // Esperar a que navegue (con timeout corto)
+       await page.waitForNavigation({ waitUntil: "domcontentloaded", timeout: 10000 }).catch(() => console.log("[PLAYTOMIC] Navigation timeout, continuando..."));
 
        // PASO 2: Navegar a schedule
+       console.log("[PLAYTOMIC] Navegando a schedule...");
        const scheduleUrl = `https://manager.playtomic.io/dashboard/schedule?tid=${PLAYTOMIC_TENANT_ID}`;
        await page.goto(scheduleUrl, { waitUntil: "domcontentloaded" });
 
-       // Espera mínima (no 3 segundos)
-       await page.waitForTimeout(1500);
+       // Espera mínima
+       await page.waitForTimeout(1000);
 
        // PASO 3: Extraer disponibilidad
+       console.log("[PLAYTOMIC] Extrayendo disponibilidad...");
        const disponibilidad = await page.evaluate(() => {
          const resultado = {};
          const contenido = document.body.innerText;
@@ -408,10 +462,12 @@ async function consultarDisponibilidadPlaytomic() {
          return resultado;
        });
 
+       console.log("[PLAYTOMIC] Cerrando browser...");
        await browser.close();
        return disponibilidad;
 
      } catch (err) {
+       console.error("[PLAYTOMIC] Error en scrape: " + err.message);
        try { await browser.close(); } catch {}
        throw err;
      }
@@ -439,18 +495,17 @@ async function consultarDisponibilidadPlaytomic() {
      data: resultadoFinal
    };
 
-   console.log("[PLAYTOMIC] ✓ Extraido en caché");
+   console.log("[PLAYTOMIC] ✓ Extraido correctamente: " + Object.keys(resultadoFinal).length + " canchas");
    return resultadoFinal;
 
  } catch (err) {
    console.error("[PLAYTOMIC] " + err.message);
    
-   // Si hay error, intentar actualizar en background sin bloquear
-   if (!actualizandoCache) {
-     actualizandoCache = true;
-     consultarDisponibilidadPlaytomic()
-       .then(() => { actualizandoCache = false; })
-       .catch(() => { actualizandoCache = false; });
+   // Si hay error pero hay datos en caché (aunque sean viejos), devolverlos
+   const hoy = new Date().toISOString().split('T')[0];
+   if (cacheDisponibilidad[hoy]) {
+     console.log("[PLAYTOMIC] Retornando caché viejo tras error");
+     return cacheDisponibilidad[hoy].data;
    }
    
    return { error: "No pude consultar disponibilidad en este momento" };
