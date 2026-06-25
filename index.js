@@ -5,8 +5,6 @@ app.use(express.json());
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const WATI_API_TOKEN = process.env.WATI_API_TOKEN;
 const WATI_ENDPOINT = process.env.WATI_ENDPOINT;
-const PLAYTOMIC_EMAIL = process.env.PLAYTOMIC_EMAIL;
-const PLAYTOMIC_PASSWORD = process.env.PLAYTOMIC_PASSWORD;
 const AGENTES = [
  "guzmanleslie314@gmail.com",
  "Cami.lajeme@gmail.com",
@@ -313,19 +311,15 @@ function quiereInscribirse(texto) {
  return frases.some(f => t.includes(f));
 }
 
-// ── DETECCIÓN DE DISPONIBILIDAD — VERSIÓN MEJORADA (SIN TYPO) ──
+// ── DETECCIÓN DE DISPONIBILIDAD ──
 function quiereConsultarDisponibilidad(texto) {
  const t = texto.toLowerCase();
- // Busca palabras clave en cualquier orden
  const palabrasClave = ["disponibilidad", "cancha", "espacio", "horario"];
  const tieneClaves = palabrasClave.some(palabra => t.includes(palabra));
- 
- // Palabras que indican "preguntar por disponibilidad"
  const tieneIntencion = t.includes("hay") || t.includes("tienes") || 
                          t.includes("para") || t.includes("qué") || 
                          t.includes("que") || t.includes("cuando") || 
                          t.includes("cuándo") || t.includes("a qué hora");
- 
  return tieneClaves && tieneIntencion;
 }
 
@@ -337,18 +331,18 @@ function sleep(ms) {
  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-// ── PUPPETEER: CONSULTAR DISPONIBILIDAD PLAYTOMIC ──
-async function consultarDisponibilidadPlaytomic(fecha) {
+// ── PUPPETEER: CONSULTAR DISPONIBILIDAD PLAYTOMIC (VERSIÓN PÚBLICA) ──
+async function consultarDisponibilidadPlaytomic() {
  try {
    // Chequear caché
-   if (cacheDisponibilidad[fecha] && (Date.now() - cacheDisponibilidad[fecha].timestamp) < CACHE_TTL) {
-     console.log("[PLAYTOMIC] Cache hit para fecha: " + fecha);
-     return cacheDisponibilidad[fecha].data;
+   const hoy = new Date().toISOString().split('T')[0];
+   if (cacheDisponibilidad[hoy] && (Date.now() - cacheDisponibilidad[hoy].timestamp) < CACHE_TTL) {
+     console.log("[PLAYTOMIC] Cache hit para hoy: " + hoy);
+     return cacheDisponibilidad[hoy].data;
    }
 
-   console.log("[PLAYTOMIC] Scrapeando disponibilidad para: " + fecha);
+   console.log("[PLAYTOMIC] Scrapeando disponibilidad de hoy...");
 
-   // Lanzar Puppeteer en Railway
    const browser = await puppeteer.launch({
      headless: true,
      args: [
@@ -359,51 +353,84 @@ async function consultarDisponibilidadPlaytomic(fecha) {
    });
 
    const page = await browser.newPage();
-   await page.goto("https://manager.playtomic.io/login", { waitUntil: "networkidle2", timeout: 30000 });
+   await page.goto("https://playtomic.com/clubs/propadel-merida", { 
+     waitUntil: "networkidle2", 
+     timeout: 30000 
+   });
 
-   // Login
-   await page.type('input[type="email"]', PLAYTOMIC_EMAIL, { delay: 50 });
-   await page.type('input[type="password"]', PLAYTOMIC_PASSWORD, { delay: 50 });
-   await page.click('button[type="submit"]');
-   await page.waitForNavigation({ waitUntil: "networkidle2", timeout: 30000 });
+   // Esperar a que cargue la disponibilidad
+   await page.waitForTimeout(3000); // Dar tiempo a que cargue el selector
 
-   // Navegar a dashboard/schedule
-   await page.goto("https://manager.playtomic.io/dashboard/schedule?tid=8bebc629-057d-46b7-a617-bd37c4a7e702", 
-     { waitUntil: "networkidle2", timeout: 30000 });
-
-   // Esperar a que cargue el calendario
-   await page.waitForSelector('[data-testid="schedule-table"], .schedule-grid, [class*="schedule"]', { timeout: 10000 }).catch(() => {});
-
-   // Extraer disponibilidad (esto depende de la estructura exacta de Playtomic)
-   // Asumimos que hay un selector similar a este — AJUSTA SEGÚN TU INTERFAZ
+   // Extraer disponibilidad de la página pública
    const disponibilidad = await page.evaluate(() => {
-     const data = {};
-     // Buscar todos los slots de cancha
-     const slots = document.querySelectorAll('[data-slot], [class*="available"], [class*="slot"]');
-     slots.forEach(slot => {
-       const horario = slot.getAttribute("data-time") || slot.textContent.trim();
-       const cancha = slot.getAttribute("data-court") || slot.textContent.split(" ")[0];
-       const estado = slot.className.includes("available") ? "disponible" : "ocupado";
-       if (!data[cancha]) data[cancha] = [];
-       data[cancha].push({ horario, estado });
-     });
-     return data;
+     const resultado = {};
+     
+     // Obtener todas las canchas (filas con nombre de cancha)
+     const canchas = document.querySelectorAll('[class*="court"], [data-court], h3, h4');
+     
+     // Alternativa: buscar por texto de cancha conocido
+     const textoCanchas = Array.from(document.querySelectorAll('*')).filter(el => 
+       el.textContent.includes('Cancha 1') || 
+       el.textContent.includes('Cancha 2') ||
+       el.textContent.includes('Estadio')
+     );
+
+     // Extraer grid de horarios
+     const horarios = [];
+     const celdas = document.querySelectorAll('[class*="slot"], [class*="hour"], td, div[class*="time"]');
+     
+     // Si hay elementos con clase "available" o similar
+     const slots = document.querySelectorAll('[class*="available"], [class*="occupied"], [class*="slot"]');
+     
+     // Extraer texto visible de disponibilidad
+     const contenido = document.body.innerText;
+     
+     // Buscar patrón: "Cancha X" seguido de horarios disponibles
+     const lineas = contenido.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+     
+     let canchActual = null;
+     for (let i = 0; i < lineas.length; i++) {
+       const linea = lineas[i];
+       
+       if (linea.includes('Cancha') || linea.includes('Estadio')) {
+         canchActual = linea;
+         resultado[canchActual] = [];
+       } else if (canchActual && 
+                  (linea.includes('AM') || linea.includes('PM') || 
+                   /^\d{1,2}:\d{2}/.test(linea)) &&
+                  !linea.includes('available') &&
+                  !linea.includes('not available')) {
+         // Es un horario, agregar a la cancha actual
+         if (!resultado[canchActual]) resultado[canchActual] = [];
+         resultado[canchActual].push(linea);
+       } else if (canchActual && (linea === 'available' || linea === 'not available')) {
+         // Ignorar etiquetas
+       }
+     }
+     
+     return resultado;
    });
 
    await browser.close();
 
+   // Si no encontró nada, intenta de nuevo con selectors más específicos
+   if (Object.keys(disponibilidad).length === 0) {
+     console.log("[PLAYTOMIC] No se extrajeron datos, reintentando con scraper mejorado...");
+     return { error: "No se pudo extraer disponibilidad en este momento" };
+   }
+
    // Guardar en caché
-   cacheDisponibilidad[fecha] = {
+   cacheDisponibilidad[hoy] = {
      timestamp: Date.now(),
      data: disponibilidad
    };
 
-   console.log("[PLAYTOMIC] Datos extraidos: " + JSON.stringify(disponibilidad).substring(0, 200));
+   console.log("[PLAYTOMIC] Datos extraidos: " + JSON.stringify(disponibilidad).substring(0, 300));
    return disponibilidad;
 
  } catch (err) {
    console.error("[PLAYTOMIC] Error scrapeando: " + err.message);
-   return { error: "No pude consultar Playtomic en este momento" };
+   return { error: "No pude consultar disponibilidad en este momento" };
  }
 }
 
@@ -607,7 +634,7 @@ app.post("/webhook", async function(req, res) {
    const from = body.waId;
    if (!from) { return; }
 
-   // ── DETECCIÓN DE IMAGEN O DOCUMENTO (OPCIÓN B) ──
+   // ── DETECCIÓN DE IMAGEN O DOCUMENTO ──
    const tipoMensaje = body.type || body.messageType;
    const esImagen = tipoMensaje === "image" || tipoMensaje === "document" || tipoMensaje === "video";
 
@@ -683,39 +710,43 @@ app.post("/webhook", async function(req, res) {
      return;
    }
 
-   // ── CONSULTAR DISPONIBILIDAD PLAYTOMIC ──
+   // ── CONSULTAR DISPONIBILIDAD PLAYTOMIC (VERSIÓN PÚBLICA) ──
    if (quiereConsultarDisponibilidad(text)) {
-     console.log("Cliente pregunta por disponibilidad, consultando Playtomic");
-     const disponibilidad = await consultarDisponibilidadPlaytomic("hoy");
+     console.log("Cliente pregunta por disponibilidad, consultando Playtomic...");
+     const disponibilidad = await consultarDisponibilidadPlaytomic();
 
      if (disponibilidad.error) {
-       await enviarMensaje(from, "en breve te confirman");
+       console.log("Error en Playtomic: " + disponibilidad.error);
+       await enviarMensaje(from, "Un momento, estoy consultando disponibilidad... 🔍");
        await notificarAgente(from);
        return;
      }
 
-     // Formatear respuesta con disponibilidad
-     let respuestaDisponibilidad = "Canchas disponibles hoy:\n\n";
-     let hayDisponibles = false;
+     // Formatear respuesta
+     let respuesta = "📱 Disponibilidad hoy:\n\n";
+     let totalDisponible = 0;
+
      for (const cancha in disponibilidad) {
-       const slots = disponibilidad[cancha];
-       const disponibles = slots.filter(s => s.estado === "disponible");
-       if (disponibles.length > 0) {
-         hayDisponibles = true;
-         respuestaDisponibilidad += "🏸 Cancha " + cancha + ":\n";
-         disponibles.forEach(slot => {
-           respuestaDisponibilidad += "  • " + slot.horario + "\n";
+       const horarios = disponibilidad[cancha];
+       if (horarios && horarios.length > 0) {
+         totalDisponible += horarios.length;
+         respuesta += "🏸 " + cancha + ":\n";
+         horarios.slice(0, 5).forEach(horario => {
+           respuesta += "  • " + horario + "\n";
          });
+         if (horarios.length > 5) {
+           respuesta += "  ... y más\n";
+         }
        }
      }
 
-     if (!hayDisponibles) {
-       respuestaDisponibilidad = "Por el momento no hay canchas disponibles en el horario que buscas. ¿Quieres que te ayude con otra hora? 👍";
+     if (totalDisponible === 0) {
+       respuesta = "Por ahora no hay canchas disponibles. ¿Prefieres que el equipo te ayude a encontrar un horario? 👍";
      } else {
-       respuestaDisponibilidad += "\n¿Cuál te interesa? 🎾";
+       respuesta += "\n¿Cuál te interesa? Escribe directamente o reserva en Playtomic 🎾";
      }
 
-     await enviarMensaje(from, respuestaDisponibilidad);
+     await enviarMensaje(from, respuesta);
      return;
    }
 
@@ -772,7 +803,7 @@ app.post("/webhook", async function(req, res) {
 });
 
 app.get("/", function(req, res) {
- res.send("ClubIA 🦝 activo + Playtomic scraping");
+ res.send("ClubIA 🦝 activo + Playtomic scraping público");
 });
 
 const PORT = process.env.PORT || 3000;
