@@ -312,16 +312,23 @@ function quiereInscribirse(texto) {
  const t = texto.toLowerCase();
  return frases.some(f => t.includes(f));
 }
+
+// ── DETECCIÓN DE DISPONIBILIDAD — VERSIÓN MEJORADA (SIN TYPO) ──
 function quiereConsultarDisponibilidad(texto) {
- const frases = [
-   "hay disponibilidad", "está disponible", "esta disponible",
-   "tienes espacio", "tienes cancha", "hay cancha", "hay espacio",
-   "qué horas", "que horas", "horarios", "cuando puedo", "cuándo puedo",
-   "a qué hora", "a que hora", "para mañana", "para el", "para la"
- ];
  const t = texto.toLowerCase();
- return frases.some(f => t.includes(f));
+ // Busca palabras clave en cualquier orden
+ const palabrasClave = ["disponibilidad", "cancha", "espacio", "horario"];
+ const tieneClaves = palabrasClave.some(palabra => t.includes(palabra));
+ 
+ // Palabras que indican "preguntar por disponibilidad"
+ const tieneIntencion = t.includes("hay") || t.includes("tienes") || 
+                         t.includes("para") || t.includes("qué") || 
+                         t.includes("que") || t.includes("cuando") || 
+                         t.includes("cuándo") || t.includes("a qué hora");
+ 
+ return tieneClaves && tieneIntencion;
 }
+
 function botNoSabe(respuesta) {
  return respuesta.toLowerCase().includes("en breve te confirman");
 }
@@ -600,7 +607,7 @@ app.post("/webhook", async function(req, res) {
    const from = body.waId;
    if (!from) { return; }
 
-   // ── DETECCIÓN DE IMAGEN O DOCUMENTO ──
+   // ── DETECCIÓN DE IMAGEN O DOCUMENTO (OPCIÓN B) ──
    const tipoMensaje = body.type || body.messageType;
    const esImagen = tipoMensaje === "image" || tipoMensaje === "document" || tipoMensaje === "video";
 
@@ -613,9 +620,9 @@ app.post("/webhook", async function(req, res) {
      }
 
      enHandoff[from] = true;
-     await enviarMensaje(from, "¡Gracias! 🙌 Ya le paso tu comprobante al equipo para confirmarte.");
+     await enviarMensaje(from, "¡Gracias! 📸 Un momento te conecto con el equipo.");
      await asignarAgente(from);
-     await notificarAtencion("🔔 Comprobante recibido de +" + from + ". Favor confirmar pago en Wati.");
+     await notificarAtencion("📎 Cliente +" + from + " envió una imagen. Revisar en Wati para ver qué es.");
      return;
    }
 
