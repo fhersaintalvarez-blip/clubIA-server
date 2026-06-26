@@ -793,11 +793,7 @@ app.post("/webhook", async function(req, res) {
      conversaciones[from] = conversaciones[from].slice(-10);
    }
 
-   const esCerrado = !estaAbierto();
-   const systemConFecha = SYSTEM_PROMPT + "\n\nCONTEXTO ACTUAL: " + getFechaContexto() +
-     (esCerrado
-       ? " El club está cerrado en este momento. Si es el primer mensaje del cliente, saluda normal y menciona brevemente que ya cerramos pero que con gusto le ayudas con info. Si ya hay historial, responde directo sin volver a mencionar el cierre."
-       : "");
+   const systemConFecha = SYSTEM_PROMPT + "\n\nCONTEXTO ACTUAL: " + getFechaContexto();
 
    const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
      method: "POST",
