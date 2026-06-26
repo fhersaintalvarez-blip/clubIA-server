@@ -311,16 +311,27 @@ function quiereInscribirse(texto) {
  return frases.some(f => t.includes(f));
 }
 
-// ── DETECCIÓN DE DISPONIBILIDAD ──
+// ── DETECCIÓN DE DISPONIBILIDAD (MEJORADA) ──
 function quiereConsultarDisponibilidad(texto) {
  const t = texto.toLowerCase();
- const palabrasClave = ["disponibilidad", "cancha", "espacio", "horario"];
- const tieneClaves = palabrasClave.some(palabra => t.includes(palabra));
- const tieneIntencion = t.includes("hay") || t.includes("tienes") || 
-                         t.includes("para") || t.includes("qué") || 
-                         t.includes("que") || t.includes("cuando") || 
-                         t.includes("cuándo") || t.includes("a qué hora");
- return tieneClaves && tieneIntencion;
+ 
+ // Palabras clave exclusivas de pregunta de disponibilidad
+ const patronesDisponibilidad = [
+   "hay cancha", "hay disponible", "tienes cancha", 
+   "qué hora", "qué horario", "cuál horario", "cual horario",
+   "disponibilidad", "¿hay", "¿tienes", "¿qué", "¿cual", "¿cuál",
+   "cuando hay", "cuándo hay", "a qué hora hay", "a que hora hay",
+   "para jugar", "para las", "para esa hora"
+ ];
+ 
+ const esConsultaDisponibilidad = patronesDisponibilidad.some(patron => t.includes(patron));
+ 
+ // Excluir respuestas pasivas (confirmaciones, nombres, etc)
+ const esRespuestaConfirmacion = t === "si" || t === "sí" || t === "ok" || 
+                                  t === "okay" || t === "listo" || t === "perfecto" ||
+                                  t.startsWith("cancha");
+ 
+ return esConsultaDisponibilidad && !esRespuestaConfirmacion;
 }
 
 function botNoSabe(respuesta) {
@@ -331,7 +342,7 @@ function sleep(ms) {
  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-// ── PUPPETEER: CONSULTAR DISPONIBILIDAD PLAYTOMIC (CON SELECTORES REALES) ──
+// ── PUPPETEER: CONSULTAR DISPONIBILIDAD PLAYTOMIC ──
 async function consultarDisponibilidadPlaytomic() {
  try {
    // Chequear caché
@@ -399,13 +410,10 @@ async function consultarDisponibilidadPlaytomic() {
          const duracion = slot.getAttribute('data-tracking-property-duration') || '60';
          
          // Encontrar a qué cancha pertenece este slot
-         // Los slots están organizados en filas, necesitamos mapearlos a canchas
-         // Estrategia: buscar el div más cercano que tenga la cancha
          let parent = slot.parentElement;
          let canchaPadre = null;
          
          while (parent && !canchaPadre) {
-           // Buscar si hay un text node con nombre de cancha cerca
            const textContent = parent.textContent || '';
            for (const cancha of Object.keys(resultado)) {
              if (textContent.includes(cancha)) {
@@ -416,13 +424,15 @@ async function consultarDisponibilidadPlaytomic() {
            parent = parent.parentElement;
          }
 
-         // Si no encontramos la cancha por proximidad, asignar a la primera
          if (!canchaPadre && Object.keys(resultado).length > 0) {
            canchaPadre = Object.keys(resultado)[0];
          }
 
          if (canchaPadre && horario) {
-           resultado[canchaPadre].push(horario);
+           // DEDUPLICAR: evitar horarios repetidos
+           if (!resultado[canchaPadre].includes(horario)) {
+             resultado[canchaPadre].push(horario);
+           }
          }
        }
      });
