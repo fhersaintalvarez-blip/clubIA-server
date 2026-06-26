@@ -18,10 +18,6 @@ const EMAILS_AGENTES = new Set([
 const NUMERO_ATENCION = "529992592708"; // ProPadel Atención — Camila y Leslie
 let turnoAgente = 0;
 
-// ── PLAYTOMIC CACHE ──
-let cacheDisponibilidad = {};
-const CACHE_TTL = 15 * 60 * 1000; // 15 minutos
-
 const SYSTEM_PROMPT = `Eres Raccoon, el asistente virtual de ProPadel Merida, el mejor club de padel de Merida, Yucatan. Respondes mensajes de WhatsApp de clientes de forma amable, corta y profesional. Usa maximo 2 emojis por mensaje. El tono es relajado y amigable, como el ambiente del club. NUNCA te presentes ni digas tu nombre en las respuestas.
 IDIOMA: Responde siempre en el mismo idioma que usa el cliente. Si escribe en inglés, responde en inglés con el mismo tono amigable.
 Si es el primer mensaje del cliente (no hay historial previo), saluda con: "¡Hola qué tal! 🦝 Bienvenido a ProPadel Mérida. ¿En qué te puedo ayudar?" y luego responde su pregunta si hizo alguna. Si ya hay historial, responde directo sin saludar.
@@ -346,128 +342,6 @@ function sleep(ms) {
  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-// ── PUPPETEER: CONSULTAR DISPONIBILIDAD PLAYTOMIC ──
-async function consultarDisponibilidadPlaytomic() {
- try {
-   // Chequear caché
-   const hoy = new Date().toISOString().split('T')[0];
-   if (cacheDisponibilidad[hoy] && (Date.now() - cacheDisponibilidad[hoy].timestamp) < CACHE_TTL) {
-     console.log("[PLAYTOMIC] Cache hit para hoy: " + hoy);
-     return cacheDisponibilidad[hoy].data;
-   }
-
-   console.log("[PLAYTOMIC] Scrapeando disponibilidad de hoy...");
-
-   const browser = await puppeteer.launch({
-     headless: true,
-     args: [
-       "--no-sandbox",
-       "--disable-setuid-sandbox",
-       "--disable-dev-shm-usage"
-     ]
-   });
-
-   const page = await browser.newPage();
-   await page.goto("https://playtomic.com/clubs/propadel-merida", { 
-     waitUntil: "networkidle2", 
-     timeout: 30000 
-   });
-
-   // Esperar a que carguen los selectores reales
-   console.log("[PLAYTOMIC] Esperando a que carguen slots...");
-   await page.waitForSelector('div[data-tracking-property-time]', { timeout: 15000 }).catch(() => {
-     console.log("[PLAYTOMIC] Timeout esperando slots, intentando igual...");
-   });
-
-   await sleep(2000); // Dar tiempo extra a que cargue todo
-
-   // Extraer disponibilidad con selectores correctos
-   const disponibilidad = await page.evaluate(() => {
-     const resultado = {};
-     
-     // Buscar todas las canchas (div con class="truncate")
-     const canchaDivs = document.querySelectorAll('div.truncate');
-     const canchas = Array.from(canchaDivs).map(div => div.textContent.trim());
-     
-     if (canchas.length === 0) {
-       console.log("[PLAYTOMIC] No se encontraron canchas");
-       return resultado;
-     }
-
-     console.log("[PLAYTOMIC] Canchas encontradas: " + canchas.join(", "));
-
-     // Para cada cancha, encontrar sus slots
-     for (const cancha of canchas) {
-       resultado[cancha] = [];
-     }
-
-     // Buscar todos los slots (divs con data-tracking-property-time)
-     const slots = document.querySelectorAll('div[data-tracking-property-time]');
-     
-     slots.forEach(slot => {
-       // Verificar si es DISPONIBLE (tiene bg-white en la clase)
-       const clases = slot.getAttribute('class') || '';
-       const esDisponible = clases.includes('bg-white');
-       
-       if (esDisponible) {
-         const horario = slot.getAttribute('data-tracking-property-time') || '';
-         const duracion = slot.getAttribute('data-tracking-property-duration') || '60';
-         
-         // Encontrar a qué cancha pertenece este slot
-         let parent = slot.parentElement;
-         let canchaPadre = null;
-         
-         while (parent && !canchaPadre) {
-           const textContent = parent.textContent || '';
-           for (const cancha of Object.keys(resultado)) {
-             if (textContent.includes(cancha)) {
-               canchaPadre = cancha;
-               break;
-             }
-           }
-           parent = parent.parentElement;
-         }
-
-         if (!canchaPadre && Object.keys(resultado).length > 0) {
-           canchaPadre = Object.keys(resultado)[0];
-         }
-
-         if (canchaPadre && horario) {
-           // DEDUPLICAR: evitar horarios repetidos
-           if (!resultado[canchaPadre].includes(horario)) {
-             resultado[canchaPadre].push(horario);
-           }
-         }
-       }
-     });
-     
-     return resultado;
-   });
-
-   await browser.close();
-
-   // Si no encontró nada, retornar error
-   if (Object.keys(disponibilidad).length === 0 || 
-       Object.values(disponibilidad).every(arr => arr.length === 0)) {
-     console.log("[PLAYTOMIC] No se extrajeron datos válidos");
-     return { error: "No se pudo extraer disponibilidad en este momento" };
-   }
-
-   // Guardar en caché
-   cacheDisponibilidad[hoy] = {
-     timestamp: Date.now(),
-     data: disponibilidad
-   };
-
-   console.log("[PLAYTOMIC] Datos extraidos: " + JSON.stringify(disponibilidad).substring(0, 300));
-   return disponibilidad;
-
- } catch (err) {
-   console.error("[PLAYTOMIC] Error scrapeando: " + err.message);
-   return { error: "No pude consultar disponibilidad en este momento" };
- }
-}
-
 // ── CHECK AGENTE + DETECCIÓN DE PLANTILLA SALIENTE ──
 async function consultarConversacionWati(waId) {
  const url = WATI_ENDPOINT + "/api/v1/getConversation/" + waId;
@@ -746,50 +620,13 @@ app.post("/webhook", async function(req, res) {
      return;
    }
 
-   // ── CONSULTAR DISPONIBILIDAD PLAYTOMIC ──
+   // ── CONSULTAR DISPONIBILIDAD ──
    if (quiereConsultarDisponibilidad(text)) {
      console.log("Cliente pregunta por disponibilidad");
-     
-     // Notificar agente INMEDIATAMENTE (paralelo)
-     await notificarAgente(from);
-     
-     // Responder mientras se consulta
-     await enviarMensaje(from, "Un momento, estoy consultando disponibilidad... 🔍");
-     
-     // Scraper intenta (con timeout corto)
-     const disponibilidad = await consultarDisponibilidadPlaytomic();
-
-     if (disponibilidad.error) {
-       console.log("Error en Playtomic: " + disponibilidad.error);
-       // Agente ya está notificado, no hacer nada más
-       return;
-     }
-
-     // Formatear respuesta
-     let respuesta = "📱 Disponibilidad hoy:\n\n";
-     let totalDisponible = 0;
-
-     for (const cancha in disponibilidad) {
-       const horarios = disponibilidad[cancha];
-       if (horarios && horarios.length > 0) {
-         totalDisponible += horarios.length;
-         respuesta += "🏸 " + cancha + ":\n";
-         horarios.slice(0, 5).forEach(horario => {
-           respuesta += "  • " + horario + "\n";
-         });
-         if (horarios.length > 5) {
-           respuesta += "  ... y más\n";
-         }
-       }
-     }
-
-     if (totalDisponible === 0) {
-       respuesta = "Por ahora no hay canchas disponibles. El equipo ya está viendo cómo ayudarte 👍";
-     } else {
-       respuesta += "\n¿Cuál te interesa? Escribe directamente o reserva en Playtomic 🎾";
-     }
-
-     await enviarMensaje(from, respuesta);
+     enHandoff[from] = true;
+     await enviarMensaje(from, "¿Qué día y hora tienes en mente? Te paso con el equipo para confirmar 👍");
+     await asignarAgente(from);
+     await notificarAtencion("🗓️ Cliente +" + from + " pregunta por disponibilidad de canchas. Revisar en Wati.");
      return;
    }
 
