@@ -184,8 +184,14 @@ POSTRES:
 - Sundae Hersheys $45 — helado vainilla sabores: Chocolate, Fresa, Caramelo, Affogato
 - Bolis Jumbo $45 — Mamut, Gansito, Bubulubu, Chocoreta
 
+CANCHAS ESPECÍFICAS:
+- Cancha 1 (Cancha Negra): techada
+- Cancha 2 (Cancha Rosa): techada
+- 6 canchas techadas más (sin nombres específicos)
+- 1 cancha estadio al aire libre
+
 INSTALACIONES:
-- 8 canchas techadas
+- 8 canchas techadas (incluyendo Cancha 1 Negra y Cancha 2 Rosa)
 - 1 cancha estadio al aire libre
 - Alberca gratuita para todos los clientes — sin costo adicional. Niños pequenos deben estar supervisados por un adulto
 - Regaderas y vestidores
