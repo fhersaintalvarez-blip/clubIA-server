@@ -20,13 +20,7 @@ let turnoAgente = 0;
 
 // ── PLAYTOMIC CACHE ──
 let cacheDisponibilidad = {};
-const CACHE_TTL = 30 * 60 * 1000; // 30 minutos
-let actualizandoCache = false;
-
-// ── CREDENCIALES PLAYTOMIC MANAGER ──
-const PLAYTOMIC_EMAIL = "cami.lajeme@gmail.com";
-const PLAYTOMIC_PASSWORD = "Ca4954003.";
-const PLAYTOMIC_TENANT_ID = "8bebc629-057d-46b7-a617-bd37c4a7e702";
+const CACHE_TTL = 15 * 60 * 1000; // 15 minutos
 
 const SYSTEM_PROMPT = `Eres Raccoon, el asistente virtual de ProPadel Merida, el mejor club de padel de Merida, Yucatan. Respondes mensajes de WhatsApp de clientes de forma amable, corta y profesional. Usa maximo 2 emojis por mensaje. El tono es relajado y amigable, como el ambiente del club. NUNCA te presentes ni digas tu nombre en las respuestas.
 IDIOMA: Responde siempre en el mismo idioma que usa el cliente. Si escribe en inglés, responde en inglés con el mismo tono amigable.
@@ -337,213 +331,125 @@ function sleep(ms) {
  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-// ── PUPPETEER: CONSULTAR DISPONIBILIDAD PLAYTOMIC (OPTIMIZADO) ──
+// ── PUPPETEER: CONSULTAR DISPONIBILIDAD PLAYTOMIC (CON SELECTORES REALES) ──
 async function consultarDisponibilidadPlaytomic() {
  try {
    // Chequear caché
    const hoy = new Date().toISOString().split('T')[0];
    if (cacheDisponibilidad[hoy] && (Date.now() - cacheDisponibilidad[hoy].timestamp) < CACHE_TTL) {
-     console.log("[PLAYTOMIC] ✓ Retornando desde caché");
+     console.log("[PLAYTOMIC] Cache hit para hoy: " + hoy);
      return cacheDisponibilidad[hoy].data;
    }
 
-   console.log("[PLAYTOMIC] Iniciando scrape...");
+   console.log("[PLAYTOMIC] Scrapeando disponibilidad de hoy...");
 
-   // Timeout de 40 segundos máximo (login + schedule tarda)
-   const timeoutPromise = new Promise((_, reject) => 
-     setTimeout(() => reject(new Error("Timeout 40s")), 40000)
-   );
+   const browser = await puppeteer.launch({
+     headless: true,
+     args: [
+       "--no-sandbox",
+       "--disable-setuid-sandbox",
+       "--disable-dev-shm-usage"
+     ]
+   });
 
-   const scrapePromise = (async () => {
-     const browser = await puppeteer.launch({
-       headless: true,
-       args: [
-         "--no-sandbox",
-         "--disable-setuid-sandbox",
-         "--disable-dev-shm-usage"
-       ]
-     });
+   const page = await browser.newPage();
+   await page.goto("https://playtomic.com/clubs/propadel-merida", { 
+     waitUntil: "networkidle2", 
+     timeout: 30000 
+   });
 
-     const page = await browser.newPage();
-     page.setDefaultTimeout(20000);
-     page.setDefaultNavigationTimeout(20000);
+   // Esperar a que carguen los selectores reales
+   console.log("[PLAYTOMIC] Esperando a que carguen slots...");
+   await page.waitForSelector('div[data-tracking-property-time]', { timeout: 15000 }).catch(() => {
+     console.log("[PLAYTOMIC] Timeout esperando slots, intentando igual...");
+   });
 
-     try {
-       // PASO 1: Login
-       console.log("[PLAYTOMIC] Navegando a login...");
-       await page.goto("https://manager.playtomic.io/login", { waitUntil: "domcontentloaded" });
-       
-       // Esperar a que cargue el formulario
-       await page.waitForSelector('input[type="email"], input[type="password"]', { timeout: 5000 }).catch(() => console.log("[PLAYTOMIC] Selector no encontrado, intentando alternativa"));
+   await sleep(2000); // Dar tiempo extra a que cargue todo
 
-       console.log("[PLAYTOMIC] Rellenando credenciales...");
-       
-       // Intentar múltiples selectores
-       const emailSelectors = ['input[type="email"]', 'input[name="email"]', 'input[id*="email"]'];
-       const passSelectors = ['input[type="password"]', 'input[name="password"]', 'input[id*="password"]'];
-       
-       let emailSet = false;
-       for (const sel of emailSelectors) {
-         try {
-           await page.type(sel, PLAYTOMIC_EMAIL, { delay: 20 });
-           emailSet = true;
-           console.log("[PLAYTOMIC] Email ingresado ✓");
-           break;
-         } catch (e) {}
-       }
-       
-       let passSet = false;
-       for (const sel of passSelectors) {
-         try {
-           await page.type(sel, PLAYTOMIC_PASSWORD, { delay: 20 });
-           passSet = true;
-           console.log("[PLAYTOMIC] Password ingresada ✓");
-           break;
-         } catch (e) {}
-       }
-
-       if (!emailSet || !passSet) {
-         throw new Error("No se pudieron rellenar credenciales");
-       }
-
-       console.log("[PLAYTOMIC] Enviando login...");
-       
-       // Click en botón de login
-       const buttonSelectors = ['button[type="submit"]', 'button:has-text("Login")', 'button:has-text("Sign in")', 'button'];
-       let clicked = false;
-       
-       for (const sel of buttonSelectors) {
-         try {
-           await page.click(sel);
-           clicked = true;
-           console.log("[PLAYTOMIC] Click en login ✓");
-           break;
-         } catch (e) {}
-       }
-
-       if (!clicked) {
-         throw new Error("No se pudo hacer click en login");
-       }
-
-       // Esperar a que navegue (con timeout corto)
-       await page.waitForNavigation({ waitUntil: "domcontentloaded", timeout: 10000 }).catch(() => console.log("[PLAYTOMIC] Navigation timeout, continuando..."));
-
-       // PASO 2: Navegar a schedule y ESPERAR a que cargue
-       console.log("[PLAYTOMIC] Navegando a schedule...");
-       const scheduleUrl = `https://manager.playtomic.io/dashboard/schedule?tid=${PLAYTOMIC_TENANT_ID}`;
-       await page.goto(scheduleUrl, { waitUntil: "domcontentloaded" });
-
-       // IMPORTANTE: Esperar a que aparezca el contenido del schedule
-       // La página tarda en renderizar, esperamos hasta 20 segundos
-       console.log("[PLAYTOMIC] Esperando a que cargue el schedule (máx 20s)...");
-       try {
-         await page.waitForFunction(
-           () => {
-             const texto = document.body.innerText;
-             // Schedule cargó si hay CUALQUIERA de estos indicadores
-             const tieneCancha = texto.includes('Cancha') || texto.includes('CANCHA');
-             const tieneHorario = /\d{1,2}:\d{2}\s*(AM|PM|am|pm)/.test(texto);
-             const tieneEstadio = texto.includes('Estadio') || texto.includes('ESTADIO');
-             return tieneCancha || tieneHorario || tieneEstadio;
-           },
-           { timeout: 20000 }
-         );
-         console.log("[PLAYTOMIC] ✓ Schedule cargó correctamente");
-       } catch (err) {
-         console.log("[PLAYTOMIC] ⚠ Timeout esperando schedule: " + err.message);
-         console.log("[PLAYTOMIC] Continuando de todas formas...");
-       }
-
-       // PASO 3: Extraer disponibilidad con mejor estructura
-       console.log("[PLAYTOMIC] Extrayendo disponibilidad...");
-       const extraccion = await page.evaluate(() => {
-         const contenido = document.body.innerText;
-         const lineas = contenido.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-         
-         const primerasLineas = lineas.slice(0, 150);
-         
-         // Parsear: buscar línea con múltiples "Cancha X" y luego los horarios
-         let canchasGlobales = [];
-         let horarios = [];
-         let enSeccionHorarios = false;
-         
-         for (let i = 0; i < lineas.length; i++) {
-           const linea = lineas[i];
-           
-           // Detectar línea de canchas (contiene múltiples "Cancha")
-           if ((linea.match(/Cancha/g) || []).length >= 2) {
-             // Extraer nombres de canchas: "Cancha 1" "Cancha 2 Peñafiel" etc
-             const matches = linea.match(/Cancha\s+\d+[^C]*/g);
-             if (matches) {
-               canchasGlobales = matches.map(m => m.trim());
-             }
-             enSeccionHorarios = true;
-           }
-           // Detectar horarios (después de encontrar canchas)
-           else if (enSeccionHorarios && /^\d{1,2}:\d{2}\s*(AM|PM|am|pm)/.test(linea)) {
-             horarios.push(linea);
-           }
-           // Detectar fin de horarios (si aparece algo que claramente no es horario)
-           else if (enSeccionHorarios && horarios.length > 0 && 
-                    !(/^\d{1,2}:\d{2}/.test(linea)) && 
-                    linea.length > 20 && 
-                    !linea.includes("...")) {
-             break;
-           }
-         }
-         
-         return { 
-           canchas: canchasGlobales, 
-           horarios: horarios, 
-           primerasLineas: primerasLineas 
-         };
-       });
-
-       const { canchas, horarios, primerasLineas } = extraccion;
-       
-       // LOGGING EN NODE
-       console.log("[PLAYTOMIC] Canchas encontradas: " + JSON.stringify(canchas));
-       console.log("[PLAYTOMIC] Horarios extraídos: " + JSON.stringify(horarios));
-
-       console.log("[PLAYTOMIC] Cerrando browser...");
-       await browser.close();
-       return { canchas, horarios };
-
-     } catch (err) {
-       console.error("[PLAYTOMIC] Error en scrape: " + err.message);
-       try { await browser.close(); } catch {}
-       throw err;
+   // Extraer disponibilidad con selectores correctos
+   const disponibilidad = await page.evaluate(() => {
+     const resultado = {};
+     
+     // Buscar todas las canchas (div con class="truncate")
+     const canchaDivs = document.querySelectorAll('div.truncate');
+     const canchas = Array.from(canchaDivs).map(div => div.textContent.trim());
+     
+     if (canchas.length === 0) {
+       console.log("[PLAYTOMIC] No se encontraron canchas");
+       return resultado;
      }
-   })();
 
-   // Ejecutar con timeout
-   const resultado = await Promise.race([scrapePromise, timeoutPromise]);
+     console.log("[PLAYTOMIC] Canchas encontradas: " + canchas.join(", "));
 
-   // Validar que tenga datos
-   if (!resultado.canchas || resultado.canchas.length === 0 || !resultado.horarios || resultado.horarios.length === 0) {
-     console.log("[PLAYTOMIC] Sin disponibilidad (sin canchas o sin horarios)");
-     return { sinDisponibilidad: true };
+     // Para cada cancha, encontrar sus slots
+     for (const cancha of canchas) {
+       resultado[cancha] = [];
+     }
+
+     // Buscar todos los slots (divs con data-tracking-property-time)
+     const slots = document.querySelectorAll('div[data-tracking-property-time]');
+     
+     slots.forEach(slot => {
+       // Verificar si es DISPONIBLE (tiene bg-white en la clase)
+       const clases = slot.getAttribute('class') || '';
+       const esDisponible = clases.includes('bg-white');
+       
+       if (esDisponible) {
+         const horario = slot.getAttribute('data-tracking-property-time') || '';
+         const duracion = slot.getAttribute('data-tracking-property-duration') || '60';
+         
+         // Encontrar a qué cancha pertenece este slot
+         // Los slots están organizados en filas, necesitamos mapearlos a canchas
+         // Estrategia: buscar el div más cercano que tenga la cancha
+         let parent = slot.parentElement;
+         let canchaPadre = null;
+         
+         while (parent && !canchaPadre) {
+           // Buscar si hay un text node con nombre de cancha cerca
+           const textContent = parent.textContent || '';
+           for (const cancha of Object.keys(resultado)) {
+             if (textContent.includes(cancha)) {
+               canchaPadre = cancha;
+               break;
+             }
+           }
+           parent = parent.parentElement;
+         }
+
+         // Si no encontramos la cancha por proximidad, asignar a la primera
+         if (!canchaPadre && Object.keys(resultado).length > 0) {
+           canchaPadre = Object.keys(resultado)[0];
+         }
+
+         if (canchaPadre && horario) {
+           resultado[canchaPadre].push(horario);
+         }
+       }
+     });
+     
+     return resultado;
+   });
+
+   await browser.close();
+
+   // Si no encontró nada, retornar error
+   if (Object.keys(disponibilidad).length === 0 || 
+       Object.values(disponibilidad).every(arr => arr.length === 0)) {
+     console.log("[PLAYTOMIC] No se extrajeron datos válidos");
+     return { error: "No se pudo extraer disponibilidad en este momento" };
    }
 
    // Guardar en caché
    cacheDisponibilidad[hoy] = {
      timestamp: Date.now(),
-     data: resultado
+     data: disponibilidad
    };
 
-   console.log("[PLAYTOMIC] ✓ Extraído: " + resultado.canchas.length + " canchas, " + resultado.horarios.length + " horarios");
-   return resultado;
+   console.log("[PLAYTOMIC] Datos extraidos: " + JSON.stringify(disponibilidad).substring(0, 300));
+   return disponibilidad;
 
  } catch (err) {
-   console.error("[PLAYTOMIC] " + err.message);
-   
-   // Si hay error pero hay datos en caché (aunque sean viejos), devolverlos
-   const hoyError = new Date().toISOString().split('T')[0];
-   if (cacheDisponibilidad[hoyError]) {
-     console.log("[PLAYTOMIC] Retornando caché viejo tras error");
-     return cacheDisponibilidad[hoyError].data;
-   }
-   
+   console.error("[PLAYTOMIC] Error scrapeando: " + err.message);
    return { error: "No pude consultar disponibilidad en este momento" };
  }
 }
@@ -824,79 +730,48 @@ app.post("/webhook", async function(req, res) {
      return;
    }
 
-   // ── CONSULTAR DISPONIBILIDAD PLAYTOMIC (DASHBOARD ADMIN) ──
+   // ── CONSULTAR DISPONIBILIDAD PLAYTOMIC ──
    if (quiereConsultarDisponibilidad(text)) {
-     console.log("Cliente pregunta por disponibilidad, consultando Playtomic admin...");
-     const resultado = await consultarDisponibilidadPlaytomic();
+     console.log("Cliente pregunta por disponibilidad");
+     
+     // Notificar agente INMEDIATAMENTE (paralelo)
+     await notificarAgente(from);
+     
+     // Responder mientras se consulta
+     await enviarMensaje(from, "Un momento, estoy consultando disponibilidad... 🔍");
+     
+     // Scraper intenta (con timeout corto)
+     const disponibilidad = await consultarDisponibilidadPlaytomic();
 
-     if (resultado.error) {
-       console.log("Error en Playtomic: " + resultado.error);
-       await enviarMensaje(from, "Un momento, estoy consultando disponibilidad... 🔍");
-       await notificarAgente(from);
+     if (disponibilidad.error) {
+       console.log("Error en Playtomic: " + disponibilidad.error);
+       // Agente ya está notificado, no hacer nada más
        return;
      }
 
-     // Extraer canchas y horarios (nueva estructura)
-     const canchas = resultado.canchas || [];
-     const horarios = resultado.horarios || [];
+     // Formatear respuesta
+     let respuesta = "📱 Disponibilidad hoy:\n\n";
+     let totalDisponible = 0;
 
-     if (!canchas || canchas.length === 0 || !horarios || horarios.length === 0) {
-       console.log("Sin disponibilidad hoy (sin canchas o horarios)");
-       await enviarMensaje(from, "Lamentablemente no hay canchas disponibles en este momento. ¿Prefieres que el equipo te ayude a encontrar un horario? 👍");
-       return;
+     for (const cancha in disponibilidad) {
+       const horarios = disponibilidad[cancha];
+       if (horarios && horarios.length > 0) {
+         totalDisponible += horarios.length;
+         respuesta += "🏸 " + cancha + ":\n";
+         horarios.slice(0, 5).forEach(horario => {
+           respuesta += "  • " + horario + "\n";
+         });
+         if (horarios.length > 5) {
+           respuesta += "  ... y más\n";
+         }
+       }
      }
 
-     // FILTRAR POR HORA ACTUAL
-     const ahora = getHoraMexico();
-     const horaActual = ahora.getHours();
-     const minutosActuales = ahora.getMinutes();
-     const minutosTotalesActuales = horaActual * 60 + minutosActuales;
-
-     // Convertir horario "HH:MM AM/PM" a minutos del día
-     const convertirHoraAMinutos = (horaStr) => {
-       const match = horaStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM|am|pm)/i);
-       if (!match) return null;
-       
-       let horas = parseInt(match[1]);
-       const minutos = parseInt(match[2]);
-       const meridiano = match[3].toUpperCase();
-       
-       if (meridiano === "PM" && horas !== 12) horas += 12;
-       if (meridiano === "AM" && horas === 12) horas = 0;
-       
-       return horas * 60 + minutos;
-     };
-
-     // Filtrar horarios que sean >= hora actual
-     const horariosDisponibles = horarios.filter(h => {
-       const minutos = convertirHoraAMinutos(h);
-       return minutos !== null && minutos >= minutosTotalesActuales;
-     });
-
-     if (horariosDisponibles.length === 0) {
-       console.log("Sin disponibilidad futura hoy");
-       await enviarMensaje(from, "No hay canchas disponibles para el resto de hoy. ¿Prefieres que el equipo te ayude a encontrar un horario para mañana? 👍");
-       return;
+     if (totalDisponible === 0) {
+       respuesta = "Por ahora no hay canchas disponibles. El equipo ya está viendo cómo ayudarte 👍";
+     } else {
+       respuesta += "\n¿Cuál te interesa? Escribe directamente o reserva en Playtomic 🎾";
      }
-
-     // Formatear respuesta mejorada
-     let respuesta = "📋 Disponibilidad de hoy:\n\n";
-     
-     // Mostrar canchas
-     respuesta += "🏸 " + canchas.join(" • ") + "\n\n";
-     
-     // Mostrar horarios disponibles
-     respuesta += "⏰ Horarios disponibles:\n";
-     const horariosLimitados = horariosDisponibles.slice(0, 12);
-     horariosLimitados.forEach(h => {
-       respuesta += "  • " + h + "\n";
-     });
-     
-     if (horariosDisponibles.length > 12) {
-       respuesta += "  ... y " + (horariosDisponibles.length - 12) + " más\n";
-     }
-     
-     respuesta += "\n¿Cuál te interesa? Escribe la hora o reserva en Playtomic 🎾";
 
      await enviarMensaje(from, respuesta);
      return;
@@ -955,7 +830,7 @@ app.post("/webhook", async function(req, res) {
 });
 
 app.get("/", function(req, res) {
- res.send("ClubIA 🦝 activo + Playtomic scraping público");
+ res.send("ClubIA 🦝 activo con Playtomic scraping mejorado");
 });
 
 const PORT = process.env.PORT || 3000;
