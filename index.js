@@ -317,11 +317,14 @@ function quiereConsultarDisponibilidad(texto) {
  
  // Palabras clave exclusivas de pregunta de disponibilidad
  const patronesDisponibilidad = [
-   "hay cancha", "hay disponible", "tienes cancha", 
+   "hay cancha", "hay disponible", "tienes cancha",
+   "cuál cancha", "cual cancha",
+   "qué cancha", "que cancha",
+   "disponibilidad", "disponible",
    "qué hora", "qué horario", "cuál horario", "cual horario",
-   "disponibilidad", "¿hay", "¿tienes", "¿qué", "¿cual", "¿cuál",
+   "¿hay", "¿tienes", "¿qué", "¿cual", "¿cuál",
    "cuando hay", "cuándo hay", "a qué hora hay", "a que hora hay",
-   "para jugar", "para las", "para esa hora"
+   "para jugar", "para las", "para esa hora", "para hoy"
  ];
  
  const esConsultaDisponibilidad = patronesDisponibilidad.some(patron => t.includes(patron));
@@ -329,7 +332,8 @@ function quiereConsultarDisponibilidad(texto) {
  // Excluir respuestas pasivas (confirmaciones, nombres, etc)
  const esRespuestaConfirmacion = t === "si" || t === "sí" || t === "ok" || 
                                   t === "okay" || t === "listo" || t === "perfecto" ||
-                                  t.startsWith("cancha");
+                                  t.startsWith("cancha") || t.startsWith("si") ||
+                                  t.length < 5; // palabras muy cortas
  
  return esConsultaDisponibilidad && !esRespuestaConfirmacion;
 }
