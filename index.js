@@ -288,7 +288,7 @@ function esConfirmacionPasiva(texto) {
    "ahi estamos", "nos vemos", "va", "sale", "👍", "✅"
  ];
  const t = texto.toLowerCase().trim();
- return frases.some(f => t === f || t === f + "!" || t === f + ".");
+ return frases.some(f => t.includes(f));
 }
 function quiereHumano(texto) {
  const frases = [
@@ -668,18 +668,25 @@ app.post("/webhook", async function(req, res) {
    const from = body.waId;
    if (!from) { return; }
 
+   // ── BLOQUEO TEMPRANO: Si fue iniciada por agente, Raccoon se queda callado ──
+   if (iniciadasPorAgente.has(from)) {
+     console.log("[PLANTILLA] Conversacion iniciada por agente, Raccoon silent: " + from);
+     return;
+   }
+
+   // ── BLOQUEO TEMPRANO: Si ya está en handoff o en ventana de protección ──
+   if (enHandoff[from] || dentroDeVentanaProteccion(from)) {
+     console.log("[HANDOFF] En memoria o ventana de proteccion, Raccoon silent: " + from);
+     enHandoff[from] = true;
+     return;
+   }
+
    // ── DETECCIÓN DE IMAGEN O DOCUMENTO ──
    const tipoMensaje = body.type || body.messageType;
    const esImagen = tipoMensaje === "image" || tipoMensaje === "document" || tipoMensaje === "video";
 
    if (esImagen) {
      console.log("[IMAGEN] Recibida de: " + from + " tipo: " + tipoMensaje);
-
-     if (enHandoff[from] || iniciadasPorAgente.has(from)) {
-       await notificarAtencion("📎 Archivo recibido de +" + from + " (conversacion en handoff). Revisar en Wati.");
-       return;
-     }
-
      enHandoff[from] = true;
      await enviarMensaje(from, "¡Gracias! 📸 Un momento te conecto con el equipo.");
      await asignarAgente(from);
@@ -692,12 +699,6 @@ app.post("/webhook", async function(req, res) {
 
    console.log("Mensaje cliente de " + from + ": " + text);
 
-   if (enHandoff[from] || iniciadasPorAgente.has(from) || dentroDeVentanaProteccion(from)) {
-     console.log("[HANDOFF] En memoria o ventana de proteccion, Raccoon silent: " + from);
-     enHandoff[from] = true;
-     return;
-   }
-
    const hayAgente = await tieneAgenteAsignado(from);
    if (hayAgente) {
      enHandoff[from] = true;
@@ -707,6 +708,7 @@ app.post("/webhook", async function(req, res) {
 
    await sleep(2000);
 
+   // ── SEGUNDA VERIFICACIÓN: Agente pudo tomar el caso durante el delay ──
    if (enHandoff[from] || iniciadasPorAgente.has(from) || dentroDeVentanaProteccion(from)) {
      console.log("Agente tomo el caso durante delay, Raccoon no interviene");
      enHandoff[from] = true;
