@@ -627,10 +627,9 @@ app.post("/webhook", async function(req, res) {
    // ── CONSULTAR DISPONIBILIDAD ──
    if (quiereConsultarDisponibilidad(text)) {
      console.log("Cliente pregunta por disponibilidad");
-     enHandoff[from] = true;
      await enviarMensaje(from, "¿Qué día y hora tienes en mente? Te paso con el equipo para confirmar 👍");
      await asignarAgente(from);
-     await notificarAtencion("🗓️ Cliente +" + from + " pregunta por disponibilidad de canchas. Revisar en Wati.");
+     await notificarAtencion("🗓️ Cliente +" + from + " pregunta por disponibilidad. Revisar en Wati.");
      return;
    }
 
