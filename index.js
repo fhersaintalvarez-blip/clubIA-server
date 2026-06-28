@@ -625,7 +625,7 @@ app.post("/webhook", async function(req, res) {
    }
 
    // ── CONSULTAR DISPONIBILIDAD ──
-   if (quiereConsultarDisponibilidad(texto)) {
+   if (quiereConsultarDisponibilidad(text)) {
      console.log("Cliente pregunta por disponibilidad");
      await enviarMensaje(from, "¿Qué día y hora tienes en mente? En un momento te confirmo disponibilidad 👍");
      await asignarAgente(from);
