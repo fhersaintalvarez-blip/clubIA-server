@@ -368,7 +368,7 @@ async function consultarConversacionWati(waId) {
  }
 }
 
-const REINTENTOS_WATI_MS = [800, 1500, 2500];
+const REINTENTOS_WATI_MS = [800];
 
 async function tieneAgenteAsignado(waId) {
  if (dentroDeVentanaProteccion(waId)) {
