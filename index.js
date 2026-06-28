@@ -284,12 +284,23 @@ function getFechaContexto() {
  return `Hoy es ${dia}. Hora actual en Merida: ${hora}:${minutos}.`;
 }
 function esConfirmacionPasiva(texto) {
+ const t = texto.toLowerCase().trim();
+ 
+ // Primero: si hay intención clara de acción, NO es confirmación pasiva
+ const intencionesAccion = [
+   "reservar", "quiero", "quisiera", "necesito", "inscrib", "apartar", "contratar",
+   "pagar", "cuanto", "cuánto", "precio", "horario", "hora", "día", "dia", "cancha"
+ ];
+ if (intencionesAccion.some(i => t.includes(i))) {
+   return false;
+ }
+ 
+ // Si no hay acción, chequear frases pasivas
  const frases = [
    "confirmo", "confirmado", "confirmada", "ok", "okay", "listo", "gracias",
    "perfecto", "de acuerdo", "entendido", "recibido", "ahi estare", "ahí estaré",
    "ahi estamos", "nos vemos", "va", "sale", "👍", "✅"
  ];
- const t = texto.toLowerCase().trim();
  return frases.some(f => t.includes(f));
 }
 function quiereHumano(texto) {
