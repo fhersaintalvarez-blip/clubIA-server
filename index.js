@@ -625,13 +625,14 @@ app.post("/webhook", async function(req, res) {
    }
 
    // ── CONSULTAR DISPONIBILIDAD ──
-   if (quiereConsultarDisponibilidad(text)) {
-     console.log("Cliente pregunta por disponibilidad");
-     await enviarMensaje(from, "¿Qué día y hora tienes en mente? En un momento te confirmo disponibilidad 👍");
-     await asignarAgente(from);
-     await notificarAtencion("🗓️ Cliente +" + from + " pregunta por disponibilidad. Revisar en Wati.");
-     return;
-   }
+   // Desactivado: dejar que Claude responda con info del SYSTEM_PROMPT
+   // if (quiereConsultarDisponibilidad(text)) {
+   //   console.log("Cliente pregunta por disponibilidad");
+   //   await enviarMensaje(from, "¿Qué día y hora tienes en mente? En un momento te confirmo disponibilidad 👍");
+   //   await asignarAgente(from);
+   //   await notificarAtencion("🗓️ Cliente +" + from + " pregunta por disponibilidad. Revisar en Wati.");
+   //   return;
+   // }
 
    if (!conversaciones[from]) { conversaciones[from] = []; }
    conversaciones[from].push({ role: "user", content: text });
