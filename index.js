@@ -317,27 +317,25 @@ function quiereInscribirse(texto) {
 function quiereConsultarDisponibilidad(texto) {
  const t = texto.toLowerCase();
  
- // Palabras clave exclusivas de pregunta de disponibilidad
- const patronesDisponibilidad = [
-   "hay cancha", "hay disponible", "tienes cancha",
-   "cuál cancha", "cual cancha",
-   "qué cancha", "que cancha",
-   "disponibilidad", "disponible",
-   "qué hora", "qué horario", "cuál horario", "cual horario",
-   "¿hay", "¿tienes", "¿qué", "¿cual", "¿cuál",
-   "cuando hay", "cuándo hay", "a qué hora hay", "a que hora hay",
-   "para jugar", "para las", "para esa hora", "para hoy"
+ // Palabras clave para detectar disponibilidad
+ const tieneCancha = t.includes("cancha") || t.includes("reta") || t.includes("jugar");
+ const tieneHora = /\d{1,2}:\d{2}|de \d{1,2}|a las \d{1,2}|a \d{1,2}/.test(t);
+ const tieneDia = t.includes("mañana") || t.includes("hoy") || t.includes("domingo") || 
+                  t.includes("lunes") || t.includes("martes") || t.includes("miercoles") ||
+                  t.includes("jueves") || t.includes("viernes") || t.includes("sabado");
+ 
+ const intenciones = [
+   "reservar", "disponible", "tengo", "quiero", "quisiera", "puedo", "hay",
+   "disponibilidad", "horario", "hora"
  ];
+ const tieneIntencion = intenciones.some(i => t.includes(i));
  
- const esConsultaDisponibilidad = patronesDisponibilidad.some(patron => t.includes(patron));
+ const esConsulta = (tieneCancha || tieneIntencion) && (tieneHora || tieneDia);
  
- // Excluir respuestas pasivas (confirmaciones, nombres, etc)
- const esRespuestaConfirmacion = t === "si" || t === "sí" || t === "ok" || 
-                                  t === "okay" || t === "listo" || t === "perfecto" ||
-                                  t.startsWith("cancha") || t.startsWith("si") ||
-                                  t.length < 5; // palabras muy cortas
+ // Excluir confirmaciones pasivas
+ const esRespuestaConfirmacion = t === "si" || t === "sí" || t === "ok" || t === "listo";
  
- return esConsultaDisponibilidad && !esRespuestaConfirmacion;
+ return esConsulta && !esRespuestaConfirmacion;
 }
 
 function botNoSabe(respuesta) {
