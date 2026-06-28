@@ -234,7 +234,7 @@ CAPTURA DE LEADS — MUY IMPORTANTE:
 - NOMBRES: Si en el historial de la conversacion el cliente ya menciono su nombre, o si el cliente responde a una confirmacion de reserva que ya incluia su nombre (ejemplo: "Buen dia Yucef, le confirmamos su reserva..."), NO vueltas a pedir el nombre. Ya lo tienes. Usa el nombre directamente en tu respuesta.
 
 DETECCION DE INTENCION DE COMPRA:
-- Si el cliente dice que ya quiere inscribirse, ya se decidio, quiere reservar o contratar algo, responde: "¡Excelente! 🙌 Ahora mismo te conecto con el equipo para cerrar tu inscripcion." Eso activa handoff.
+- Si el cliente dice que ya quiere inscribirse, ya se decidio, quiere reservar o contratar algo, responde: "¡Excelente! 🙌 Ahora te confirmo los detalles y cerramos tu inscripción." Eso activa handoff.
 
 IMPORTANTE: Si no sabes algo, di exactamente: "en breve te confirman". NUNCA inventes precios o servicios.`;
 
@@ -604,7 +604,7 @@ app.post("/webhook", async function(req, res) {
      const esInglesH = /^[a-zA-Z\s\d.,!?'"-]+$/.test(text.trim());
      const msgHumano = esInglesH
        ? "Of course! 🙋 One of our team members will be with you shortly."
-       : "¡Claro! 🙋 En un momento una de nuestras cajeras te atiende personalmente.";
+       : "¡Claro! 🙋 Ahora conectamos con ProPadel para ayudarte.";
      await enviarMensaje(from, msgHumano);
      await asignarAgente(from);
      await notificarAtencion("🙋 Cliente +" + from + " solicita atención humana. Revisar en Wati.");
@@ -616,8 +616,8 @@ app.post("/webhook", async function(req, res) {
      enHandoff[from] = true;
      const esIngles = /^[a-zA-Z\s\d.,!?'"-]+$/.test(text.trim());
      const msgInscripcion = esIngles
-       ? "Perfect! 🙌 Connecting you with the team right now to complete your registration."
-       : "¡Excelente! 🙌 Ahora mismo te conecto con el equipo para cerrar tu inscripción.";
+       ? "Perfect! 🙌 Let me confirm the details and get you set up."
+       : "¡Excelente! 🙌 Ahora te confirmo los detalles y cerramos tu inscripción.";
      await enviarMensaje(from, msgInscripcion);
      await asignarAgente(from);
      await notificarAtencion("🙌 Cliente +" + from + " quiere inscribirse. Revisar en Wati.");
@@ -625,9 +625,9 @@ app.post("/webhook", async function(req, res) {
    }
 
    // ── CONSULTAR DISPONIBILIDAD ──
-   if (quiereConsultarDisponibilidad(text)) {
+   if (quiereConsultarDisponibilidad(texto)) {
      console.log("Cliente pregunta por disponibilidad");
-     await enviarMensaje(from, "¿Qué día y hora tienes en mente? Te paso con el equipo para confirmar 👍");
+     await enviarMensaje(from, "¿Qué día y hora tienes en mente? En un momento te confirmo disponibilidad 👍");
      await asignarAgente(from);
      await notificarAtencion("🗓️ Cliente +" + from + " pregunta por disponibilidad. Revisar en Wati.");
      return;
