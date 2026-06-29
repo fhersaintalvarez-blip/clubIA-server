@@ -323,15 +323,28 @@ function quiereHumano(texto) {
  return frases.some(f => t.includes(f));
 }
 function quiereInscribirse(texto) {
+ // INSCRIPCIÓN A PROGRAMAS (Academia, Baby Padel, Curso, Paquete de clases)
  const frases = [
-   "me inscribo", "quiero inscribirme", "ya me decidi", "ya me decidí",
-   "quiero reservar", "voy a reservar", "quiero apartar", "quiero contratar",
-   "me anoto", "me apunto", "ya quiero", "cómo pago", "como pago",
-   "donde pago", "dónde pago", "cuándo puedo ir", "cuando puedo ir",
-   "empiezo", "cuando empiezo", "cuándo empiezo"
+   "me inscribo", "quiero inscribirme", "inscrib", "academia kids", "baby padel",
+   "curso de verano", "clases", "paquete de", "paquete", "ya me decidi", "ya me decidí",
+   "quiero contratar clase", "entrenamiento", "coaching", "coach"
  ];
  const t = texto.toLowerCase();
  return frases.some(f => t.includes(f));
+}
+
+function quiereReservarCancha(texto) {
+ // RESERVA DE CANCHA (sin ser inscripción a programa)
+ const frases = [
+   "reservar", "reta", "jugar", "juego", "cancha"
+ ];
+ const t = texto.toLowerCase();
+ 
+ // Debe tener intención clara de reservar/jugar pero NO estar inscribiéndose a programa
+ const tieneIntension = frases.some(f => t.includes(f));
+ const esInscripcion = quiereInscribirse(t);
+ 
+ return tieneIntension && !esInscripcion;
 }
 
 // ── DETECCIÓN DE DISPONIBILIDAD (MEJORADA) ──
@@ -361,6 +374,51 @@ function quiereConsultarDisponibilidad(texto) {
 
 function botNoSabe(respuesta) {
  return respuesta.toLowerCase().includes("en breve te confirman");
+}
+
+// ── DETECCIÓN ROBUSTA DE IDIOMA ──
+function detectarIdioma(texto) {
+ const t = texto.toLowerCase().trim();
+ 
+ // Palabras clave españolas (comunes en consultas de clientes)
+ const palabrasES = [
+   "quiero", "quisiera", "necesito", "puedo", "hay", "horario", "precio",
+   "cancha", "reta", "clase", "reservar", "inscrib", "apartar", "hola",
+   "cuanto", "cuánto", "día", "dia", "lunes", "martes", "miércoles", "jueves",
+   "viernes", "sábado", "domingo", "gracias", "porfa", "porfavor", "si", "sí",
+   "ok", "de", "es", "que", "cómo", "como", "dónde", "donde", "cuándo", "cuando",
+   "disponibl", "renta", "pago", "costo", "mensual", "promoción", "descuento",
+   "equipo", "club", "padel", "técnica", "info", "información", "ayuda"
+ ];
+ 
+ // Palabras clave inglesas
+ const palabrasEN = [
+   "want", "need", "help", "please", "hi", "hello", "how", "what", "when", "where",
+   "price", "cost", "available", "court", "class", "book", "reserve", "enroll",
+   "thank", "thanks", "ok", "yes", "no", "can", "do", "is", "are", "get", "info",
+   "information", "time", "day", "schedule", "lesson", "match", "play", "coach"
+ ];
+ 
+ const contadorES = palabrasES.filter(p => t.includes(p)).length;
+ const contadorEN = palabrasEN.filter(p => t.includes(p)).length;
+ 
+ // Si hay coincidencias claras, retornar ese idioma
+ if (contadorES > contadorEN && contadorES > 0) {
+   return "es";
+ }
+ if (contadorEN > contadorES && contadorEN > 0) {
+   return "en";
+ }
+ 
+ // Si hay empate o sin coincidencias, revisar patrones adicionales
+ // Chequear caracteres especiales españoles
+ if (t.includes("ñ") || t.includes("á") || t.includes("é") || t.includes("í") || 
+     t.includes("ó") || t.includes("ú") || t.includes("¿") || t.includes("¡")) {
+   return "es";
+ }
+ 
+ // Default: español (es el idioma primario del club)
+ return "es";
 }
 
 function sleep(ms) {
@@ -622,8 +680,8 @@ app.post("/webhook", async function(req, res) {
    if (quiereHumano(text)) {
      console.log("Cliente pide humano");
      enHandoff[from] = true;
-     const esInglesH = /^[a-zA-Z\s\d.,!?'"-]+$/.test(text.trim());
-     const msgHumano = esInglesH
+     const idioma = detectarIdioma(text);
+     const msgHumano = idioma === "en"
        ? "Of course! 🙋 One of our team members will be with you shortly."
        : "¡Claro! 🙋 Ahora conectamos con ProPadel para ayudarte.";
      await enviarMensaje(from, msgHumano);
@@ -635,8 +693,8 @@ app.post("/webhook", async function(req, res) {
    if (quiereInscribirse(text)) {
      console.log("Cliente quiere inscribirse, activando handoff");
      enHandoff[from] = true;
-     const esIngles = /^[a-zA-Z\s\d.,!?'"-]+$/.test(text.trim());
-     const msgInscripcion = esIngles
+     const idioma = detectarIdioma(text);
+     const msgInscripcion = idioma === "en"
        ? "Perfect! 🙌 Let me confirm the details and get you set up."
        : "¡Excelente! 🙌 Ahora te confirmo los detalles y cerramos tu inscripción.";
      await enviarMensaje(from, msgInscripcion);
