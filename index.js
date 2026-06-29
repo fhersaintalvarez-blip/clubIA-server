@@ -36,7 +36,7 @@ CONTACTO DEL CLUB:
 HORARIOS DE ATENCION DEL CLUB:
 - Lunes a viernes: 6:00 am a 11:30 pm
 - Sabado: 7:00 am a 2:00 pm
-- Domingo: 7:00 am a 4:00 pm
+- Domingo: 7:00 am a 2:00 pm
 
 TURNOS DEL STAFF (cajeras en caja):
 - Lunes a viernes mañana: Camila — 6:00 am a 1:00 pm
@@ -257,7 +257,7 @@ function dentroDeVentanaProteccion(numero) {
 
 const DIAS = ["domingo", "lunes", "martes", "miercoles", "jueves", "viernes", "sabado"];
 const HORARIOS = {
- 0: { inicio: 7, fin: 16 },
+ 0: { inicio: 7, fin: 14 },
  1: { inicio: 6, fin: 23.5 },
  2: { inicio: 6, fin: 23.5 },
  3: { inicio: 6, fin: 23.5 },
@@ -289,15 +289,17 @@ function esConfirmacionPasiva(texto) {
  // Primero: si hay intención clara de acción, NO es confirmación pasiva
  const intencionesAccion = [
    "reservar", "quiero", "quisiera", "necesito", "inscrib", "apartar", "contratar",
-   "pagar", "cuanto", "cuánto", "precio", "horario", "hora", "día", "dia", "cancha"
+   "pagar", "cuanto", "cuánto", "precio", "horario", "hora", "día", "dia", "cancha",
+   "información", "info", "campamento", "academia", "baby padel", "clase", "reta",
+   "jugar", "juego", "horarios", "disponible", "disponibilidad"
  ];
  if (intencionesAccion.some(i => t.includes(i))) {
    return false;
  }
  
- // Si no hay acción, chequear frases pasivas
+ // Solo frases REALMENTE pasivas (sin acción de fondo)
  const frases = [
-   "confirmo", "confirmado", "confirmada", "ok", "okay", "listo", "gracias",
+   "confirmo", "confirmado", "confirmada", "ok", "okay", "listo",
    "perfecto", "de acuerdo", "entendido", "recibido", "ahi estare", "ahí estaré",
    "ahi estamos", "nos vemos", "va", "sale", "👍", "✅"
  ];
