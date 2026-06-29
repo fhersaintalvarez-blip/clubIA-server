@@ -647,6 +647,15 @@ app.post("/webhook", async function(req, res) {
    //   return;
    // }
 
+   // ── VERIFICACIÓN FINAL: Agente asignado vía Wati antes de generar IA ──
+   // (Opción B: failsafe contra plantillas que llegaron durante delay)
+   const hayAgenteAsignado2 = await tieneAgenteAsignado(from);
+   if (hayAgenteAsignado2) {
+     console.log("[HANDOFF FINAL] Agente detectado justo antes de IA, Raccoon silent: " + from);
+     enHandoff[from] = true;
+     return;
+   }
+
    if (!conversaciones[from]) { conversaciones[from] = []; }
    conversaciones[from].push({ role: "user", content: text });
    if (conversaciones[from].length > 10) {
