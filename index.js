@@ -29,7 +29,7 @@ Maximo 5 lineas de texto mas la lista. Que se vea limpio como WhatsApp real.
 PREGUNTAS FUERA DE LUGAR: Si alguien pregunta algo que no tiene nada que ver con el club (ejemplo: venden mango, tienen ferreteria, etc.), responde con humor ligero y redirige al club. Ejemplo: "Mangos no, pero tenemos algo mejor 😄 ¿Te puedo ayudar con info del club?" NUNCA seas grosero ni cortante.
 CONTACTO DEL CLUB:
 - Ya estás en WhatsApp de Raccoon, el asistente de ProPadel Mérida
-- Si alguien pregunta "¿cuál es tu número?" o "¿cómo te llamo?": 
+- Si alguien pregunta "¿cuál es tu número?" o "¿cómo te llamo?":
   Responde: "Este es mi WhatsApp 🦝 aquí tengo todo del club"
 - NUNCA des otro número a clientes
 
@@ -40,9 +40,9 @@ HORARIOS DE ATENCION DEL CLUB:
 
 TURNOS DEL STAFF (cajeras en caja):
 - Lunes a viernes mañana: Camila — 6:00 am a 1:00 pm
-- Lunes a viernes tarde: Leslie — 4:00 pm a 11:30 pm
+- Lunes a viernes tarde: Marce — 4:00 pm a 11:30 pm
 - Sabado: Camila — 7:00 am a 2:00 pm
-- Domingo: Leslie — 7:00 am a 4:00 pm
+- Domingo: Marce — 7:00 am a 4:00 pm
 NOTA: El equipo siempre monitorea WhatsApp aunque no estén físicamente en el club. Si alguien pide atención humana en cualquier horario del club, puedes transferirla con confianza.
 TARIFAS DE CANCHA (cancha techada):
 La unidad base de renta es 2 horas. El precio por hora se calcula dividiendo entre 2. Puedes calcular cualquier duracion y darselo directo al cliente sin necesitar al equipo.
@@ -51,26 +51,28 @@ PRECIO BASE (bloque 2 horas):
 - Lunes a jueves 6:00 am a 6:00 pm: $640 MXN (= $320/hora)
 - Lunes a jueves 6:00 pm a 10:00 pm: $1,200 MXN (= $600/hora)
 - Viernes todo el dia: $600 MXN (= $300/hora) — Promo TGI Fridays
-- Sabado y domingo: $900 MXN (= $450/hora, incluye desayuno)
+- Sabado y domingo: $900 MXN (= $450/hora)
+
+PROMO FIN DE SEMANA — TORTA DE COCHINITA:
+- Sabado y domingo, reservando la cancha DIRECTO en el club o por WhatsApp, la renta de 2 horas ($900 MXN) incluye una torta de cochinita de cortesia.
+- Esta promo SOLO aplica en reservas de 2 horas completas. NO aplica en reservas de 1 hora ni de otra duracion distinta a 2 horas.
+- NO aplica si la reserva se hace por Playtomic — solo reservando directo por WhatsApp o en el club.
+- Siempre menciona esta promo como ventaja de reservar directo por WhatsApp.
 
 CALCULOS POR DURACION — responde siempre con el calculo exacto:
-- 1 hora: precio/hora del horario correspondiente
+- 1 hora: precio/hora del horario correspondiente (fin de semana: $450 MXN, SIN torta de cochinita)
 - 1.5 horas: precio/hora x 1.5
-- 2 horas: precio base del bloque
-- 3 horas: precio/hora x 3
-- 4 horas: precio/hora x 4
-Ejemplo: "3 horas lunes en la tarde" = $600 x 3 = $1,800 MXN. Da siempre el numero final, no la formula.
+- 2 horas: precio base del bloque (fin de semana: $900 MXN, CON torta de cochinita si es reserva directa en club o WhatsApp)
+Ejemplo: "2 horas lunes en la tarde" = $600 x 2 = $1,200 MXN. Da siempre el numero final, no la formula.
 Si piden mas de 2 horas seguidas, menciona que la disponibilidad de cancha continua depende del horario y sugiere confirmar con el equipo.
 
 DISPONIBILIDAD DE CANCHAS — INSTRUCCIÓN CRÍTICA:
 - NO tienes acceso a Playtomic en tiempo real. NUNCA confirmes si hay cancha disponible.
 - Si el cliente pregunta por disponibilidad (ej: "¿hay cancha el lunes a las 8pm?"), SIEMPRE responde:
-  "¿Qué día y hora tienes en mente? El equipo te confirma disponibilidad al toque 👍"
+  En un momento El equipo te confirma disponibilidad al toque 👍"
 - NUNCA digas "sí hay" o "no hay" o "seguro hay" — eso lo verifica el agente.
 - Sí puedes hablar de tarifas (precios), horarios del club, y promociones.
 - La disponibilidad real la confirma Camila o Leslie en Wati.
-
-IMPORTANTE fin de semana: la promo $900 con desayuno es exclusiva reservando directo por WhatsApp, NO aplica en Playtomic. Siempre menciona esto como ventaja.
 
 CUANDO NO SABES O ESTÁ FUERA DE ALCANCE:
 - Si alguien pregunta sobre vacantes, empleo, reclutamiento, términos legales, o temas fuera de ProPadel:
@@ -79,7 +81,7 @@ CUANDO NO SABES O ESTÁ FUERA DE ALCANCE:
 - El handoff silencioso (asignar a agente) se encarga del resto
 EVENTOS ESPECIALES:
 - Retas de After Office (viernes): $150 por persona mas pelotas. Juegas todo lo que quieras. Para inscribirte o mas info contacta a Tatiana Cardos: 999 193 4806
-- Retas Domingueras (domingo): $300 por persona, incluye desayuno. Para inscribirte o mas info contacta a Tatiana Cardos: 999 193 4806
+- Retas Domingueras (domingo): $300 por persona, incluye torta de cochinita. Para inscribirte o mas info contacta a Tatiana Cardos: 999 193 4806
 - Torneo 4ta Fuerza (lunes): Organizado por Tatiana Cardos. Para mas info y unirte al grupo: 999 193 4806
 
 CIRCUITO DE LA CAGUAMA (convenio externo):
@@ -144,58 +146,12 @@ FISIOTERAPIA - AMOVERTE:
 - Para costos y citas, contactar directamente con el fisio
 TIENDA - MUNDO PADEL:
 - Palas, tenis, ropa y accesorios deportivos
-CAFETERIA - ALDEA CAFE:
-- Mismo horario que el club
-- No se permiten alimentos externos
-
-BEBIDAS CALIENTES:
-- Espresso $45 | Americano $55 | Descafeinado $50
-- Capuccino $70 | Latte $70 | Chocolate abuelita $70 | Chai Latte $70
-- Caramel Latte $75 | Horchata Latte $75 | Moca $75 | Dirty Chai $75
-
-BEBIDAS FRIAS:
-- Malteada Choco Galleta $80 | Malteada de Fresa $80 | Malteada de Caramelo $80 | Frappuccino $80
-- Licuado proteina vegetal sabor chocolate $85 | Licuado frutos rojos sabor vainilla $85
-- Smoothie Jugo Verde $80
-
-SMOOTHIES $60:
-Sabores: Mango, Fresa, Guayaba, Uva, Limon, Pitahaya, Pina Colada
-Modificadores: +$10 Lechera | +$10 Chamoy con Tajin | +$20 Licor (coctel)
-
-DESAYUNOS:
-- Breakfast Sandwich $120 — pan brioche, huevo, jamon, queso americano, chipotle, papas chips
-- Waffles con platano $100 — miel, azucar glass, platano
-- Sandwich Ligero $120 — pan integral, jamon de pavo, queso panela, hummus chipotle, tomate, lechuga, papas chips
-- Avocado Toast $160 — guacamole, huevos, tomate, cebolla, everything bagel
-- Chilaquiles Verdes $120 (con huevo) / $150 (con pollo) — frijol, salsa verde, queso sopero, crema, cebolla
-- Huevos 2pz $80 | A la mexicana $85 | Con jamon $90 — con frijol y totopos
-
-TARDES DE RETA:
-- Choripan $120 — chorizo argentino, mayonesa, lechuga, tomate, chimichurri, papas chips
-- Cheese Burger $130 — doble queso americano, jalapenos, chipotle, papas chips
-- Chicken Sandwich $130 — pechuga empanizada, queso americano, lechuga, tomate, papas chips
-
-TAQUIZA (ordenes de 3 piezas):
-- Tacos de Pastor $110
-- Gringas de Pastor $130 | Gringas de Chuleta $130
-- Gringas Arrachera con Chistorra $150
-- Tacos Carnitas de Atun $150
-
-PARA BOTANEAR:
-- Papas a la francesa $100
-- Dedos de queso y Chips $120 — mozzarella 8pz, bastones verdura, chipotle
-- Nachos Especiales $160 — Pastor/Chuleta/Arrachera, guacamole, jalapenos
-- Boneless y Chips $250 — bufalo o bbq, 500gr, ranch
-- Bandeja Carta Clara $500 — boneless + dedos queso + papas + nachos + 1 misil gratis
-
-POSTRES:
-- Sundae Hersheys $45 — helado vainilla sabores: Chocolate, Fresa, Caramelo, Affogato
-- Bolis Jumbo $45 — Mamut, Gansito, Bubulubu, Chocoreta
+CAFETERIA no disponible por el momento
 
 CANCHAS ESPECÍFICAS:
 - Cancha 1 (Cancha Negra): techada
 - Cancha 2 (Cancha Rosa): techada
-- 6 canchas techadas más (sin nombres específicos)
+- 5 canchas techadas más (sin nombres específicos)
 - 1 cancha estadio al aire libre
 
 INSTALACIONES:
@@ -293,7 +249,7 @@ function getFechaContexto() {
 }
 function esConfirmacionPasiva(texto) {
  const t = texto.toLowerCase().trim();
- 
+
  // Primero: si hay intención clara de acción, NO es confirmación pasiva
  const intencionesAccion = [
    "reservar", "quiero", "quisiera", "necesito", "inscrib", "apartar", "contratar",
@@ -304,7 +260,7 @@ function esConfirmacionPasiva(texto) {
  if (intencionesAccion.some(i => t.includes(i))) {
    return false;
  }
- 
+
  // Solo frases REALMENTE pasivas (sin acción de fondo)
  const frases = [
    "confirmo", "confirmado", "confirmada", "ok", "okay", "listo",
@@ -323,102 +279,44 @@ function quiereHumano(texto) {
  return frases.some(f => t.includes(f));
 }
 function quiereInscribirse(texto) {
- // INSCRIPCIÓN A PROGRAMAS (Academia, Baby Padel, Curso, Paquete de clases)
  const frases = [
-   "me inscribo", "quiero inscribirme", "inscrib", "academia kids", "baby padel",
-   "curso de verano", "clases", "paquete de", "paquete", "ya me decidi", "ya me decidí",
-   "quiero contratar clase", "entrenamiento", "coaching", "coach"
+   "me inscribo", "quiero inscribirme", "ya me decidi", "ya me decidí",
+   "quiero reservar", "voy a reservar", "quiero apartar", "quiero contratar",
+   "me anoto", "me apunto", "ya quiero", "cómo pago", "como pago",
+   "donde pago", "dónde pago", "cuándo puedo ir", "cuando puedo ir",
+   "empiezo", "cuando empiezo", "cuándo empiezo"
  ];
  const t = texto.toLowerCase();
  return frases.some(f => t.includes(f));
 }
 
-function quiereReservarCancha(texto) {
- // RESERVA DE CANCHA (sin ser inscripción a programa)
- const frases = [
-   "reservar", "reta", "jugar", "juego", "cancha"
- ];
- const t = texto.toLowerCase();
- 
- // Debe tener intención clara de reservar/jugar pero NO estar inscribiéndose a programa
- const tieneIntension = frases.some(f => t.includes(f));
- const esInscripcion = quiereInscribirse(t);
- 
- return tieneIntension && !esInscripcion;
-}
-
 // ── DETECCIÓN DE DISPONIBILIDAD (MEJORADA) ──
 function quiereConsultarDisponibilidad(texto) {
  const t = texto.toLowerCase();
- 
+
  // Palabras clave para detectar disponibilidad
  const tieneCancha = t.includes("cancha") || t.includes("reta") || t.includes("jugar");
  const tieneHora = /\d{1,2}:\d{2}|de \d{1,2}|a las \d{1,2}|a \d{1,2}/.test(t);
- const tieneDia = t.includes("mañana") || t.includes("hoy") || t.includes("domingo") || 
+ const tieneDia = t.includes("mañana") || t.includes("hoy") || t.includes("domingo") ||
                   t.includes("lunes") || t.includes("martes") || t.includes("miercoles") ||
                   t.includes("jueves") || t.includes("viernes") || t.includes("sabado");
- 
+
  const intenciones = [
    "reservar", "disponible", "tengo", "quiero", "quisiera", "puedo", "hay",
    "disponibilidad", "horario", "hora"
  ];
  const tieneIntencion = intenciones.some(i => t.includes(i));
- 
+
  const esConsulta = (tieneCancha || tieneIntencion) && (tieneHora || tieneDia);
- 
+
  // Excluir confirmaciones pasivas
  const esRespuestaConfirmacion = t === "si" || t === "sí" || t === "ok" || t === "listo";
- 
+
  return esConsulta && !esRespuestaConfirmacion;
 }
 
 function botNoSabe(respuesta) {
  return respuesta.toLowerCase().includes("en breve te confirman");
-}
-
-// ── DETECCIÓN ROBUSTA DE IDIOMA ──
-function detectarIdioma(texto) {
- const t = texto.toLowerCase().trim();
- 
- // Palabras clave españolas (comunes en consultas de clientes)
- const palabrasES = [
-   "quiero", "quisiera", "necesito", "puedo", "hay", "horario", "precio",
-   "cancha", "reta", "clase", "reservar", "inscrib", "apartar", "hola",
-   "cuanto", "cuánto", "día", "dia", "lunes", "martes", "miércoles", "jueves",
-   "viernes", "sábado", "domingo", "gracias", "porfa", "porfavor", "si", "sí",
-   "ok", "de", "es", "que", "cómo", "como", "dónde", "donde", "cuándo", "cuando",
-   "disponibl", "renta", "pago", "costo", "mensual", "promoción", "descuento",
-   "equipo", "club", "padel", "técnica", "info", "información", "ayuda"
- ];
- 
- // Palabras clave inglesas
- const palabrasEN = [
-   "want", "need", "help", "please", "hi", "hello", "how", "what", "when", "where",
-   "price", "cost", "available", "court", "class", "book", "reserve", "enroll",
-   "thank", "thanks", "ok", "yes", "no", "can", "do", "is", "are", "get", "info",
-   "information", "time", "day", "schedule", "lesson", "match", "play", "coach"
- ];
- 
- const contadorES = palabrasES.filter(p => t.includes(p)).length;
- const contadorEN = palabrasEN.filter(p => t.includes(p)).length;
- 
- // Si hay coincidencias claras, retornar ese idioma
- if (contadorES > contadorEN && contadorES > 0) {
-   return "es";
- }
- if (contadorEN > contadorES && contadorEN > 0) {
-   return "en";
- }
- 
- // Si hay empate o sin coincidencias, revisar patrones adicionales
- // Chequear caracteres especiales españoles
- if (t.includes("ñ") || t.includes("á") || t.includes("é") || t.includes("í") || 
-     t.includes("ó") || t.includes("ú") || t.includes("¿") || t.includes("¡")) {
-   return "es";
- }
- 
- // Default: español (es el idioma primario del club)
- return "es";
 }
 
 function sleep(ms) {
@@ -680,8 +578,8 @@ app.post("/webhook", async function(req, res) {
    if (quiereHumano(text)) {
      console.log("Cliente pide humano");
      enHandoff[from] = true;
-     const idioma = detectarIdioma(text);
-     const msgHumano = idioma === "en"
+     const esInglesH = /^[a-zA-Z\s\d.,!?'"-]+$/.test(text.trim());
+     const msgHumano = esInglesH
        ? "Of course! 🙋 One of our team members will be with you shortly."
        : "¡Claro! 🙋 Ahora conectamos con ProPadel para ayudarte.";
      await enviarMensaje(from, msgHumano);
@@ -693,8 +591,8 @@ app.post("/webhook", async function(req, res) {
    if (quiereInscribirse(text)) {
      console.log("Cliente quiere inscribirse, activando handoff");
      enHandoff[from] = true;
-     const idioma = detectarIdioma(text);
-     const msgInscripcion = idioma === "en"
+     const esIngles = /^[a-zA-Z\s\d.,!?'"-]+$/.test(text.trim());
+     const msgInscripcion = esIngles
        ? "Perfect! 🙌 Let me confirm the details and get you set up."
        : "¡Excelente! 🙌 Ahora te confirmo los detalles y cerramos tu inscripción.";
      await enviarMensaje(from, msgInscripcion);
