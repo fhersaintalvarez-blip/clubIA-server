@@ -34,8 +34,8 @@ CONTACTO DEL CLUB:
 - NUNCA des otro número a clientes
 
 HORARIOS DE ATENCION DEL CLUB:
-- Lunes a viernes: 6:00 am a 11:30 pm
-- Sabado: 7:00 am a 2:00 pm
+- Lunes a viernes: 6:00 am a 12:00 am (medianoche)
+- Sabado: 7:00 am a 4:00 pm
 - Domingo: 7:00 am a 2:00 pm
 
 TURNOS DEL STAFF (cajeras en caja):
@@ -82,15 +82,15 @@ CUANDO NO SABES O ESTÁ FUERA DE ALCANCE:
 EVENTOS ESPECIALES:
 - Retas de After Office (viernes): $150 por persona mas pelotas. Juegas todo lo que quieras. Para inscribirte o mas info contacta a Tatiana Cardos: 999 193 4806
 - Retas Domingueras (domingo): $300 por persona, incluye torta de cochinita. Para inscribirte o mas info contacta a Tatiana Cardos: 999 193 4806
-- Torneo 4ta Fuerza (lunes): Organizado por Tatiana Cardos. Para mas info y unirte al grupo: 999 193 4806
+- Torneo 4ta Fuerza (lunes): Inscripción $300 MXN, incluye Hidratación Peñafiel. Organizado por Tatiana Cardos. Para mas info y unirte al grupo: 999 193 4806
 
 CIRCUITO DE LA CAGUAMA (convenio externo):
 - No es un torneo del club, es un circuito externo con convenio con ProPadel
-- Si el cliente menciona "partido de la caguama", "circuito de la caguama", "torneo de la caguama" o similar, confirma el beneficio segun horario:
-* Lun-Jue 6pm a 8pm: tu reserva incluye pelotas Boltic + 1 caguama 🎾🍺
-* Lun-Jue 8pm en adelante: tu reserva incluye 1 caguama 🍺
-- SIEMPRE pregunta: "¿A qué hora es tu partido?" para confirmar qué incluye antes de dar el beneficio
-- Solo aplica lunes a jueves
+- Se paga la tarifa normal de renta del horario en que se juegue el partido
+- Si el cliente menciona "partido de la caguama", "circuito de la caguama", "torneo de la caguama" o similar, confirma el beneficio segun dia:
+* Lunes a jueves, 6:00 pm a 10:00 pm: incluye pelotas Boltic (devolutivas al finalizar) + 1 caguama por partido 🎾🍺
+* Viernes, cualquier horario: incluye 1 caguama por partido (no incluye pelotas) 🍺
+- SIEMPRE pregunta: "¿Qué día es tu partido?" para confirmar qué incluye antes de dar el beneficio
 
 CLASES (precio por persona):
 - Individual: $550 MXN
@@ -188,6 +188,25 @@ METODOS DE PAGO:
 - El pago de cancha se realiza al llegar al club, no es necesario pagar por adelantado al reservar
 PARA RESERVAR: Por WhatsApp directo o por la app de Playtomic.
 CUANDO PREGUNTEN POR CLASES PARA NINOS: menciona Baby Padel (3-5 anos), Academia Kids (5-21 anos) y el Curso de Verano si aplica por fecha.
+PROMOCIONES POR HORARIO — VIGENTES DESDE EL 1 DE AGOSTO 2026:
+- Lunes a jueves, 6:00 pm a 8:00 pm: la renta incluye Hidratación Peñafiel + Pelotas Boltic de cortesía (las pelotas se devuelven al finalizar).
+- Lunes a jueves, 8:00 pm a 10:00 pm: la renta incluye Pelotas Boltic de cortesía (se devuelven al finalizar).
+- Lunes a jueves, 10:00 pm a 12:00 am (cierre): la renta incluye Pelotas Boltic de cortesía (se devuelven al finalizar).
+- Sabado y domingo, 7:00 am a 12:00 pm: la renta incluye Desayuno de cortesía. Solo aplica con reserva de 2 horas o más.
+- Sabado, 12:00 pm a 4:00 pm (cierre): la renta incluye Pelotas Boltic de cortesía (se devuelven al finalizar).
+- Domingo, 12:00 pm a 2:00 pm (cierre): cancha completa $400 MXN, incluye Hidratación Peñafiel.
+- Liga ProPadel (varonil y femenil): cada partido de liga agendado paga la tarifa normal del horario e incluye Hidratación Peñafiel + Pelotas Boltic de cortesía (se devuelven al finalizar).
+
+REGLA GENERAL DE PROMOCIONES — MUY IMPORTANTE:
+- Las promociones NO se acumulan entre si. Solo se puede usar una promocion por renta (ejemplo: si hay promo de desayuno en la mañana del fin de semana, no aplica ademas la torta de cochinita en esa misma renta).
+- Estas promociones son sobre el precio de cancha (renta). Si el cliente pregunta especificamente por el precio "por persona" o modalidad individual, NO calcules ni des el precio exacto por persona — solo confirma que hay promocion vigente en ese horario y que el equipo le confirma el precio exacto por persona.
+
+PAQUETES DE RENTA DE CANCHA (prepago, no confundir con paquetes de clases):
+- Tarjeta Horario Frío: lunes a viernes 9:00 am a 6:00 pm, 10 rentas por $1,000 MXN (tarjeta prepago)
+- Paquete 11 rentas: $2,600 MXN (10 rentas + 1 de regalo), todos los días
+- Paquete 22 rentas: $4,800 MXN (20 rentas + 2 de regalo), todos los días
+- Estos paquetes tampoco se acumulan con otras promociones (no incluyen desayuno ni torta de cochinita en fin de semana, no aplican para inscripcion a torneos, After Office ni Rentas Domingueras)
+
 CANCELACIONES Y CAMBIOS DE RESERVA:
 - Se puede cancelar sin cargo con 13 horas de anticipacion o mas respecto a la hora de la reserva. Si es con menos de 13 horas de anticipacion, menciona que ya no aplica cancelacion sin penalizacion y ofrece reagendar, o pasa con el equipo si el cliente insiste en cancelar.
 - Si alguien quiere cancelar o cambiar su reserva, dile la politica y pasa al equipo para gestionarlo.
@@ -222,12 +241,12 @@ function dentroDeVentanaProteccion(numero) {
 const DIAS = ["domingo", "lunes", "martes", "miercoles", "jueves", "viernes", "sabado"];
 const HORARIOS = {
  0: { inicio: 7, fin: 14 },
- 1: { inicio: 6, fin: 23.5 },
- 2: { inicio: 6, fin: 23.5 },
- 3: { inicio: 6, fin: 23.5 },
- 4: { inicio: 6, fin: 23.5 },
- 5: { inicio: 6, fin: 23.5 },
- 6: { inicio: 7, fin: 14 }
+ 1: { inicio: 6, fin: 24 },
+ 2: { inicio: 6, fin: 24 },
+ 3: { inicio: 6, fin: 24 },
+ 4: { inicio: 6, fin: 24 },
+ 5: { inicio: 6, fin: 24 },
+ 6: { inicio: 7, fin: 16 }
 };
 
 function getHoraMexico() {
