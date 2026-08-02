@@ -40,9 +40,9 @@ HORARIOS DE ATENCION DEL CLUB:
 
 TURNOS DEL STAFF (cajeras en caja):
 - Lunes a viernes mañana: Camila — 6:00 am a 1:00 pm
-- Lunes a viernes tarde: Marce — 4:00 pm a 11:30 pm
-- Sabado: Camila — 7:00 am a 2:00 pm
-- Domingo: Marce — 7:00 am a 4:00 pm
+- Lunes a viernes tarde: Marce — 4:00 pm a 12:00 am (medianoche)
+- Sabado: Camila — 7:00 am a 4:00 pm
+- Domingo: Marce — 7:00 am a 2:00 pm
 NOTA: El equipo siempre monitorea WhatsApp aunque no estén físicamente en el club. Si alguien pide atención humana en cualquier horario del club, puedes transferirla con confianza.
 TARIFAS DE CANCHA (cancha techada):
 La unidad base de renta es 2 horas. El precio por hora se calcula dividiendo entre 2. Puedes calcular cualquier duracion y darselo directo al cliente sin necesitar al equipo.
@@ -120,13 +120,13 @@ ACADEMIA KIDS:
 - Mensualidad 2 dias por semana: $2,350 MXN
 - Mensualidad 4 dias por semana: $3,100 MXN
 CURSO DE VERANO 2026:
-- Fechas: 29 de junio al 31 de julio
-- Lunes a jueves, 9:00 am a 12:30 pm
+- Fechas: 3 al 13 de agosto (extensión)
+- Lunes a jueves, 9:30 am a 12:30 pm
 - Edades: 5 a 21 anos
 - Paquetes:
 * 1 dia: $450 MXN
 * 1 semana: $1,500 MXN
-* 5 semanas: $6,400 MXN
+* 2 semanas: $2,500 MXN
 - Incluye: entrenamiento, alberca y lunch
 - Niveles: Iniciacion y Formacion
 - 10% de descuento al inscribir a un amiguito
@@ -135,9 +135,10 @@ PREPARACION FISICA:
 - Coach: Roandys
 - Martes y jueves de 7:30 am a 8:30 am
 LIGA PROPADEL VARONIL:
-- 2da temporada activa con 9 parejas
-- Partidos los jueves
+- Dos categorías activas: Tercera Fuerza y Cuarta Fuerza
+- Partidos todos los jueves (ambas categorías)
 - Se requiere pareja para inscribirse
+- Convocatoria de ambas categorías (Tercera y Cuarta Fuerza) sale el 10 de agosto — si preguntan por inscribirse, menciona que la convocatoria abre esa fecha
 LIGA PROPADEL FEMENIL:
 - Inscripcion individual, no necesitas pareja
 - Coordinada por Tatiana Cardos: 999 193 4806
