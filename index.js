@@ -94,9 +94,9 @@ CIRCUITO DE LA CAGUAMA (convenio externo):
 
 CLASES (precio por persona):
 - Individual: $550 MXN
-- 2 personas: $300 MXN c/u
-- 3 personas: $250 MXN c/u
-- 4 personas: $200 MXN c/u
+- 2 personas: $400 MXN c/u
+- 3 personas: $300 MXN c/u
+- 4 personas: $250 MXN c/u
 COACHES DISPONIBLES: Nina, Ramiro, Núñez, Raúl — todos atienden cualquier nivel (principiante, intermedio, avanzado)
 IMPORTANTE: Las clases se deben agendar con anticipación para coordinar con el coach. No se puede llegar sin reserva previa.
 PAQUETES DE CLASES:
