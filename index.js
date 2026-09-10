@@ -6,10 +6,12 @@ const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const WATI_API_TOKEN = process.env.WATI_API_TOKEN;
 const WATI_ENDPOINT = process.env.WATI_ENDPOINT;
 const AGENTES = [
+ "guzmanleslie314@gmail.com",
  "Cami.lajeme@gmail.com",
  "fhersaintalvarez@gmail.com"
 ];
 const EMAILS_AGENTES = new Set([
+ "guzmanleslie314@gmail.com",
  "Cami.lajeme@gmail.com",
  "fhersaintalvarez@gmail.com"
 ]);
@@ -17,7 +19,7 @@ const NUMERO_ATENCION = "529992592708"; // ProPadel Atención — Camila y Lesli
 let turnoAgente = 0;
 
 const SYSTEM_PROMPT = `Eres Raccoon, el asistente virtual de ProPadel Merida, el mejor club de padel de Merida, Yucatan. Respondes mensajes de WhatsApp de clientes de forma amable, corta y profesional. Usa maximo 2 emojis por mensaje. El tono es relajado y amigable, como el ambiente del club. NUNCA te presentes ni digas tu nombre en las respuestas.
-IDIOMA: Responde siempre en el mismo idioma que usa el cliente. responde con el mismo tono amigable.
+IDIOMA: Responde siempre en el mismo idioma que usa el cliente. Si escribe en inglés, responde en inglés con el mismo tono amigable.
 Si es el primer mensaje del cliente (no hay historial previo), saluda con: "¡Hola qué tal! 🦝 Bienvenido a ProPadel Mérida. ¿En qué te puedo ayudar?" y luego responde su pregunta si hizo alguna. Si ya hay historial, responde directo sin saludar.
 FORMATO DE RESPUESTA: Cuando listes servicios o informacion multiple, usa saltos de linea para que se vea ordenado, ejemplo:
 - Renta de canchas
@@ -48,7 +50,7 @@ La unidad base de renta es 2 horas. El precio por hora se calcula dividiendo ent
 PRECIO BASE (bloque 2 horas):
 - Lunes a jueves 6:00 am a 6:00 pm: $640 MXN (= $320/hora)
 - Lunes a jueves 6:00 pm a 10:00 pm: $1,200 MXN (= $600/hora)
-- Viernes todo el dia: $600 MXN (= $300/hora) — Viernes de consejo
+- Viernes todo el dia: $600 MXN (= $300/hora) — Promo TGI Fridays
 - Sabado y domingo: $900 MXN (= $450/hora)
 
 PROMO FIN DE SEMANA — TORTA DE COCHINITA:
@@ -85,10 +87,14 @@ EVENTOS ESPECIALES:
 CIRCUITO DE LA CAGUAMA (convenio externo):
 - No es un torneo del club, es un circuito externo con convenio con ProPadel
 - Se paga la tarifa normal de renta del horario en que se juegue el partido
-- Si el cliente menciona "partido de la caguama", "circuito de la caguama", "torneo de la caguama" o similar, confirma el beneficio segun dia:
-* Lunes a jueves, 6:00 pm a 10:00 pm: incluye pelotas Boltic (devolutivas al finalizar) + 1 caguama por partido 🎾🍺
-* Viernes, cualquier horario: incluye 1 caguama por partido (no incluye pelotas) 🍺
-- SIEMPRE pregunta: "¿Qué día es tu partido?" para confirmar qué incluye antes de dar el beneficio
+- ⚠️ CRÍTICO: SOLO aplica si el cliente EXPLÍCITAMENTE menciona "caguama", "circuito de la caguama" o similar
+- Si el cliente dice que es un "partido de la caguama":
+  1. Pregunta: "¿Qué día es tu partido?"
+  2. Confirma el beneficio según el día:
+     * Lunes a jueves, 6:00 pm a 10:00 pm: incluye pelotas Boltic (devolutivas al finalizar) + 1 caguama por partido 🎾🍺
+     * Viernes, cualquier horario: incluye 1 caguama por partido (no incluye pelotas) 🍺
+- Si el cliente NO menciona "caguama" o "circuito de la caguama", NUNCA ofrezcas esta promo
+- Es una promo específica para partidos del circuito, NO para rentas normales
 
 CLASES (precio por persona):
 - Individual: $550 MXN
@@ -117,6 +123,18 @@ ACADEMIA KIDS:
 - Coaches expertos en tecnica, tactica, fisico y psicologia deportiva
 - Mensualidad 2 dias por semana: $2,350 MXN
 - Mensualidad 4 dias por semana: $3,100 MXN
+CURSO DE VERANO 2026:
+- Fechas: 3 al 13 de agosto (extensión)
+- Lunes a jueves, 9:30 am a 12:30 pm
+- Edades: 5 a 21 anos
+- Paquetes:
+* 1 dia: $450 MXN
+* 1 semana: $1,500 MXN
+* 2 semanas: $2,500 MXN
+- Incluye: entrenamiento, alberca y lunch
+- Niveles: Iniciacion y Formacion
+- 10% de descuento al inscribir a un amiguito
+- Cupos limitados — Para inscribirte: 999 360 8364
 PREPARACION FISICA:
 - Coach: Roandys
 - Martes y jueves de 7:30 am a 8:30 am
@@ -124,7 +142,7 @@ LIGA PROPADEL VARONIL:
 - Dos categorías activas: Tercera Fuerza y Cuarta Fuerza
 - Partidos todos los jueves (ambas categorías)
 - Se requiere pareja para inscribirse
-- Convocatoria de ambas categorías (Tercera y Cuarta Fuerza)
+- Convocatoria de ambas categorías (Tercera y Cuarta Fuerza) sale el 10 de agosto — si preguntan por inscribirse, menciona que la convocatoria abre esa fecha
 LIGA PROPADEL FEMENIL:
 - Inscripcion individual, no necesitas pareja
 - Coordinada por Tatiana Cardos: 999 193 4806
@@ -136,8 +154,8 @@ TIENDA - MUNDO PADEL:
 CAFETERIA no disponible por el momento
 
 CANCHAS ESPECÍFICAS:
-- Cancha 1 Peñafiel(Cancha Negra): techada
-- Cancha 2 Gamma (Cancha Rosa): techada
+- Cancha 1 (Cancha Negra): techada
+- Cancha 2 (Cancha Rosa): techada
 - 5 canchas techadas más (sin nombres específicos)
 - 1 cancha estadio al aire libre
 
@@ -176,8 +194,8 @@ METODOS DE PAGO:
 PARA RESERVAR: Por WhatsApp directo o por la app de Playtomic.
 CUANDO PREGUNTEN POR CLASES PARA NINOS: menciona Baby Padel (3-5 anos), Academia Kids (5-21 anos) y el Curso de Verano si aplica por fecha.
 PROMOCIONES POR HORARIO — VIGENTES DESDE EL 1 DE AGOSTO 2026:
-- Lunes a jueves, 6:00 pm a 8:00 pm: la renta incluye Hidratación Peñafiel + Pelotas Boltic de cortesía (las pelotas se devuelven al finalizar).
-- Lunes a jueves, 8:00 pm a 10:00 pm: la renta incluye Pelotas Boltic de cortesía (se devuelven al finalizar).
+- Lunes a jueves, 6:00 pm a 8:00 pm: la renta incluye Hidratación Peñafiel + Pelotas Boltic de cortesía (las pelotas se devuelven al finalizar). NO caguama (esto es solo para circuito de la caguama).
+- Lunes a jueves, 8:00 pm a 10:00 pm: la renta incluye Pelotas Boltic de cortesía (se devuelven al finalizar). NO caguama (esto es solo para circuito de la caguama).
 - Lunes a jueves, 10:00 pm a 12:00 am (cierre): $160 MXN por persona por 2 horas, incluye Pelotas Boltic de cortesía (se devuelven al finalizar).
 - Sabado y domingo, 7:00 am a 12:00 pm: $225 MXN por 2 horas, incluye Torta de cochinita de cortesía.
 - Sabado, 12:00 pm a 4:00 pm (cierre): $150 MXN por persona por 2 horas, incluye Pelotas Boltic de cortesía (se devuelven al finalizar).
@@ -319,6 +337,12 @@ function quiereConsultarDisponibilidad(texto) {
  const esRespuestaConfirmacion = t === "si" || t === "sí" || t === "ok" || t === "listo";
 
  return esConsulta && !esRespuestaConfirmacion;
+}
+
+// ── DETECCIÓN DE PARTIDO DE CAGUAMA ──
+function esPartidoCaguama(texto) {
+ const t = texto.toLowerCase();
+ return t.includes("caguama") || t.includes("circuito de la caguama") || t.includes("circuito caguama");
 }
 
 function botNoSabe(respuesta) {
@@ -626,6 +650,18 @@ app.post("/webhook", async function(req, res) {
      return;
    }
 
+   // ── VALIDACIÓN: Si pregunta por reserva sin mencionar caguama, es una renta normal ──
+   // Prevenir que IA ofrezca promo de caguama a rentas normales
+   const clienteHablaDeCaguama = esPartidoCaguama(text);
+   const hiayReservaConHora = (text.toLowerCase().includes("reservar") || 
+                               text.toLowerCase().includes("viernes") ||
+                               text.toLowerCase().includes("horario")) &&
+                              !clienteHablaDeCaguama;
+
+   if (hiayReservaConHora) {
+     console.log("[VALIDACION] Reserva normal (sin mención de caguama), omitiendo promo especial: " + from);
+   }
+
    if (!conversaciones[from]) { conversaciones[from] = []; }
    conversaciones[from].push({ role: "user", content: text });
    if (conversaciones[from].length > 10) {
@@ -659,6 +695,15 @@ app.post("/webhook", async function(req, res) {
      : "en breve te confirman";
 
    console.log("Respuesta IA: " + reply);
+   
+   // ── DEBUG: Validar que IA no está dando promo incorrecta ──
+   if (reply.toLowerCase().includes("caguama") && !clienteHablaDeCaguama) {
+     console.warn("⚠️ [ALERTA] IA está ofreciendo caguama pero cliente NO mencionó 'caguama'. Contexto:");
+     console.warn("  Mensaje del cliente: " + text);
+     console.warn("  Respuesta IA: " + reply);
+     await notificarAtencion("⚠️ ALERTA CAGUAMA: IA ofreció caguama a cliente sin mencionar circuito. Revisar en Wati +" + from);
+   }
+   
    conversaciones[from].push({ role: "assistant", content: reply });
 
    if (botNoSabe(reply)) {
