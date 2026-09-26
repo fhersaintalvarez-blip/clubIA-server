@@ -206,8 +206,8 @@ PROMOCIONES POR HORARIO — VIGENTES DESDE EL 1 DE AGOSTO 2026:
 - Lunes a jueves, 8:00 pm a 10:00 pm: la renta incluye Pelotas Boltic de cortesía (se devuelven al finalizar). NO caguama (esto es solo para circuito de la caguama).
 - Lunes a jueves, 10:00 pm a 12:00 am (cierre): $160 MXN por persona por 2 horas, incluye Pelotas Boltic de cortesía (se devuelven al finalizar).
 - Viernes, cualquier hora: $600 MXN (= $300/hora) — Promo TGI Fridays. SIN hidratación, SIN pelotas, SOLO descuento de precio.
-- Sabado y domingo, 7:00 am a 12:00 pm: $225 MXN por 2 horas, incluye Torta de cochinita de cortesía.
-- Sabado, 12:00 pm a 4:00 pm (cierre): $150 MXN por persona por 2 horas, incluye Pelotas Boltic de cortesía (se devuelven al finalizar).
+- Sabado y domingo, 7:00 am a 12:00 pm (MEDIODÍA): $900 MXN por 2 horas, incluye Torta de cochinita de cortesía (SOLO en este rango horario).
+- Sabado, 12:00 pm a 4:00 pm (cierre): $150 MXN por persona por 2 horas, incluye Pelotas Boltic de cortesía (se devuelven al finalizar). SIN torta de cochinita.
 - Domingo, 12:00 pm a 2:00 pm (cierre): $150 MXN por persona por 2 horas, incluye Pelotas Boltic de cortesía (se devuelven al finalizar).
 - Liga ProPadel (varonil y femenil): cada partido de liga agendado paga la tarifa normal del horario e incluye Hidratación Peñafiel + Pelotas Boltic de cortesía (se devuelven al finalizar).
 
